@@ -9,7 +9,8 @@ const result = (id: string) => user([{ type: "tool_result", tool_use_id: id, con
 
 const ROUTE = { header: "Route", question: "Which way should the PR go?", multiSelect: false, options: [{ label: "Log in as owner", description: "Open the PR directly on the repo." }, { label: "Fork", description: "Open the PR from a fork." }] };
 const AUTHOR = { header: "Author", question: "Who should author the commits?", multiSelect: false, options: [{ label: "Keep local", description: null }, { label: "Repo owner", description: null }] };
-const ask = (...questions: unknown[]): ClaudeDialog => ({ kind: "ask", questions: questions as Extract<ClaudeDialog, { kind: "ask" }>["questions"] });
+const ask = (...questions: unknown[]): ClaudeDialog => ({ kind: "ask", answered: false, questions: questions as Extract<ClaudeDialog, { kind: "ask" }>["questions"] });
+const answered = (dialog: ClaudeDialog): ClaudeDialog => ({ ...dialog, answered: true });
 
 describe("the dialog Claude's transcript waits on", () => {
   test("is the call without a result, in the turn the transcript is in", () => {
@@ -17,14 +18,14 @@ describe("the dialog Claude's transcript waits on", () => {
     expect(pendingClaudeDialog(pending)).toEqual(ask(ROUTE));
     // records Claude writes around it (titles, modes, snapshots) and a subagent's lines change nothing
     expect(pendingClaudeDialog([pending, JSON.stringify({ type: "ai-title" }), call("s", "ExitPlanMode", { plan: "x" }, { isSidechain: true }), "", "{cut"].join("\n"))).toEqual(ask(ROUTE));
-    expect(pendingClaudeDialog([user("go"), call("p", "ExitPlanMode", { plan: "1. Add README.md" })].join("\n"))).toEqual({ kind: "plan", plan: "1. Add README.md" });
+    expect(pendingClaudeDialog([user("go"), call("p", "ExitPlanMode", { plan: "1. Add README.md" })].join("\n"))).toEqual({ kind: "plan", plan: "1. Add README.md", answered: false });
   });
 
-  test("is null once its result is written, and for the newest of two calls", () => {
-    expect(pendingClaudeDialog([user("go"), call("a", "AskUserQuestion", { questions: [ROUTE] }), result("a")].join("\n"))).toBeNull();
+  test("is marked answered once its result is written, and is the newest of two calls", () => {
+    expect(pendingClaudeDialog([user("go"), call("a", "AskUserQuestion", { questions: [ROUTE] }), result("a")].join("\n"))).toEqual(answered(ask(ROUTE)));
     expect(pendingClaudeDialog([user("go"), call("a", "AskUserQuestion", { questions: [ROUTE] }), result("a"), call("b", "AskUserQuestion", { questions: [AUTHOR] })].join("\n"))).toEqual(ask(AUTHOR));
     // other tools' calls and results after the answer do not reopen it
-    expect(pendingClaudeDialog([user("go"), call("a", "AskUserQuestion", { questions: [ROUTE] }), result("a"), call("c", "Bash", { command: "ls" })].join("\n"))).toBeNull();
+    expect(pendingClaudeDialog([user("go"), call("a", "AskUserQuestion", { questions: [ROUTE] }), result("a"), call("c", "Bash", { command: "ls" })].join("\n"))).toEqual(answered(ask(ROUTE)));
   });
 
   test("says nothing for a turn without such a call, or one of another shape", () => {
@@ -79,24 +80,35 @@ describe("Claude's dialogs read with the pending call", () => {
     const whole = "←  ☒ Route  ☒ Author  ✔ Submit  →\nReview your answers\n" + review;
     expect(parseInteractivePrompt("claude", whole, null, true, ask(ROUTE, AUTHOR))).not.toBeNull();
     expect(parseInteractivePrompt("claude", whole, null, true, ask(ROUTE))).toBeNull();
-    expect(parseInteractivePrompt("claude", whole, null, true, null)).toBeNull();
-    expect(parseInteractivePrompt("claude", whole, null, true, { kind: "plan", plan: "x" })).toBeNull();
+    expect(parseInteractivePrompt("claude", whole, null, true, answered(ask(ROUTE, AUTHOR)))).toBeNull();
+    expect(parseInteractivePrompt("claude", whole, null, true, { kind: "plan", plan: "x", answered: false })).toBeNull();
   });
 
   test("shows the call's whole plan over the approval the screen shows, in a pane that wraps its question", () => {
     const plan = "# Add a README\n\n1. Create README.md\n2. Add a heading\n3. Commit";
     const screen = ["3. Commit", "", "Claude has written up a", "plan and is ready to", "execute. Would you like", "to proceed?", "", "❯ 1. Yes, auto-accept edits", "  2. Yes, manually approve edits", "  3. Tell Claude what to change", "     shift+tab to approve with this feedback"].join("\n");
     expect(parseInteractivePrompt("claude", screen)).toBeNull();
-    const prompt = parseInteractivePrompt("claude", screen, null, true, { kind: "plan", plan });
+    const prompt = parseInteractivePrompt("claude", screen, null, true, { kind: "plan", plan, answered: false });
     expect(prompt).toMatchObject({ kind: "plan", title: "Ready to code?", body: plan, custom_option_index: 2, question: "Claude has written up a plan and is ready to execute. Would you like to proceed?" });
     expect(answerKeys(prompt!, { option_index: 1 })).toEqual([{ keys: ["down"] }, { keys: ["enter"] }]);
-    expect(parseInteractivePrompt("claude", screen, null, true, null)).toBeNull();
+    // answered, the same plan still on screen is over; with a question's call pending it is not the dialog waited on
+    expect(parseInteractivePrompt("claude", screen, null, true, { kind: "plan", plan, answered: true })).toBeNull();
     expect(parseInteractivePrompt("claude", screen, null, true, ask(ROUTE))).toBeNull();
-    expect(parseInteractivePrompt("claude", screen + "\n\n● Done.\n", null, true, { kind: "plan", plan })).toBeNull();
+    expect(parseInteractivePrompt("claude", screen + "\n\n● Done.\n", null, true, { kind: "plan", plan, answered: false })).toBeNull();
+  });
+
+  test("reads a dialog that is not the answered call's from the screen: Claude has not written the new call yet", () => {
+    // seen live on Claude Code 2.1.286: the second question of a turn, its call not in the file while it waits
+    expect(parseInteractivePrompt("claude", author, null, true, answered(ask(ROUTE, AUTHOR)))).toBeNull();
+    expect(parseInteractivePrompt("claude", author, null, true, answered(ask(ROUTE)))).toMatchObject({ kind: "question", title: "Author · 2 of 2", question: AUTHOR.question });
+    expect(parseInteractivePrompt("claude", author, null, true, { kind: "plan", plan: "x", answered: true })).toMatchObject({ title: "Author · 2 of 2" });
+    const wide = ["Add a heading to the README file.", "", "Claude has written up a plan and is ready to execute. Would you like to proceed?", "", "❯ 1. Yes, auto-accept edits", "  2. Yes, manually approve edits", "  3. Tell Claude what to change", "     shift+tab to approve with this feedback"].join("\n");
+    expect(parseInteractivePrompt("claude", wide, null, true, { kind: "plan", plan: "Rename the package.", answered: true })).toMatchObject({ kind: "plan" });
+    expect(parseInteractivePrompt("claude", wide, null, true, { kind: "plan", plan: "# Plan\n\nAdd a heading to the README file.", answered: true })).toBeNull();
   });
 
   test("leaves tool approvals and unnumbered menus to the screen, whatever the transcript says", () => {
     const approval = "────────────────────────────────────────\n Bash command\n   rm -rf junk\n Do you want to proceed?\n ❯ 1. Yes\n   2. No\n Esc to cancel · Tab to amend\n";
-    for (const dialog of [undefined, null, ask(ROUTE)]) expect(parseInteractivePrompt("claude", approval, null, true, dialog)).toMatchObject({ kind: "approval", title: "Bash command" });
+    for (const dialog of [undefined, answered(ask(ROUTE)), ask(ROUTE)]) expect(parseInteractivePrompt("claude", approval, null, true, dialog)).toMatchObject({ kind: "approval", title: "Bash command" });
   });
 });

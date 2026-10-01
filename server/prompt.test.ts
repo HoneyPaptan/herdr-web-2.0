@@ -1586,5 +1586,12 @@ describe("Claude's dialogs on a prompt poll, from the transcript's pending call"
     await withPane({ agent: "claude", status: "working", screen: WHOLE, transcript: [user("Ask me where to store it.")] }, async () => {
       expect(await card()).toMatchObject({ kind: "question", title: "Storage · 1 of 2" });
     });
+    // nor does an answered call of another question: Claude Code 2.1.286 held a turn's second
+    // question back from the file while its dialog was up (live, 2026-10-01)
+    await withPane({ agent: "claude", status: "blocked", screen: WHOLE, transcript: [...OTHER, user([{ type: "tool_result", tool_use_id: "toolu_other", content: "answered" }])] }, async () => {
+      const prompt = await card();
+      expect(prompt).toMatchObject({ kind: "question", title: "Storage · 1 of 2" });
+      expect(prompt?.fallback).toBeUndefined();
+    });
   });
 });

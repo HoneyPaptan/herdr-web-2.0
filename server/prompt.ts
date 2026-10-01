@@ -412,16 +412,19 @@ function queuedPrompt(count: number, unanswered: QueuedQuestion[], front: QueueF
  * The dialog Claude Code waits on, as its tool call asked it: the questions of AskUserQuestion,
  * or the plan of ExitPlanMode. The card's text comes from here, never cut or wrapped by the pane.
  */
-export type ClaudeDialog = { kind: "ask"; questions: OmoAsk["questions"] } | { kind: "plan"; plan: string };
+export type ClaudeDialog = ({ kind: "ask"; questions: OmoAsk["questions"] } | { kind: "plan"; plan: string }) & {
+  /** its tool result is written: the dialog is over, and on screen it is a stale one */
+  answered: boolean;
+};
 
 /**
- * What Claude's transcript (its .jsonl, or the tail of it) says of such a dialog in the turn it
- * is in: the call still without a tool result; null when the turn's newest one is answered, so
- * a dialog on screen is a stale one; undefined when the turn shows none, and the screen alone is
- * read. Claude Code 2.1.286 can hold a session's first reply back from the file until its call
- * is answered, so a turn without a call says nothing of the screen.
+ * The newest such call of the turn Claude's transcript (its .jsonl, or the tail of it) is in,
+ * pending or answered; undefined when the turn shows none, and the screen alone is read. Claude
+ * Code 2.1.286 can hold a call back from the file while its dialog is up (seen live: a second
+ * question of a turn, not written until answered), so the file never proves there is no dialog:
+ * an answered call only tells that this same dialog, still on screen, is over.
  */
-export function pendingClaudeDialog(jsonl: string): ClaudeDialog | null | undefined {
+export function pendingClaudeDialog(jsonl: string): ClaudeDialog | undefined {
   const answered = new Set<string>();
   const lines = jsonl.split("\n");
   for (let index = lines.length - 1; index >= 0; index -= 1) {
@@ -442,11 +445,11 @@ export function pendingClaudeDialog(jsonl: string): ClaudeDialog | null | undefi
       .find((part) => part?.type === "tool_use" && (part.name === "AskUserQuestion" || part.name === "ExitPlanMode"));
     if (!call) continue;
     if (typeof call.id !== "string") return undefined;
-    if (answered.has(call.id)) return null;
+    const done = answered.has(call.id);
     const input = call.input as { questions?: unknown; plan?: unknown } | undefined;
-    if (call.name === "ExitPlanMode") return typeof input?.plan === "string" && input.plan.trim() ? { kind: "plan", plan: input.plan } : undefined;
+    if (call.name === "ExitPlanMode") return typeof input?.plan === "string" && input.plan.trim() ? { kind: "plan", plan: input.plan, answered: done } : undefined;
     const questions = askedQuestions(input?.questions);
-    return questions ? { kind: "ask", questions } : undefined;
+    return questions ? { kind: "ask", questions, answered: done } : undefined;
   }
   return undefined;
 }
@@ -529,15 +532,17 @@ function claudeAskedQuestion(lines: string[], hintIndex: number, questions: OmoA
 }
 
 /**
- * `dialog` is what Claude's transcript says (pendingClaudeDialog): with a pending call the card
- * is that call's, only when the screen shows it; null is no card; undefined reads the screen alone.
+ * `dialog` is what Claude's transcript says (pendingClaudeDialog). A pending call: the card is
+ * that call's, only when the screen shows it. An answered one: no card when the screen still
+ * shows it; any other dialog is a new call not written yet, read from the screen alone, as it
+ * is without a transcript.
  */
-function parseClaudeQuestion(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
-  if (dialog === null) return null;
+function parseClaudeQuestion(screen: string, dialog?: ClaudeDialog): ParsedPrompt | null {
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
   const hintIndex = findLastIndex(lines, (_, index) => CLAUDE_ASK_HINT_RE.test(wrapped(lines, index)));
   if (hintIndex < 0) return null;
-  if (dialog) return dialog.kind === "ask" ? claudeAskedQuestion(lines, hintIndex, dialog.questions) : null;
+  if (dialog && !dialog.answered) return dialog.kind === "ask" ? claudeAskedQuestion(lines, hintIndex, dialog.questions) : null;
+  if (dialog?.kind === "ask" && claudeAskedQuestion(lines, hintIndex, dialog.questions)) return null;
   const rows = parseNumberedRows(lines, Math.max(0, hintIndex - 64), hintIndex);
   if (!sequentialRows(rows) || rows.filter((row) => row.selected).length !== 1) return null;
   const chatIndex = rows.findIndex((row) => row.label === "Chat about this");
@@ -608,21 +613,23 @@ function claudeQuestionText(lines: string[], tabsIndex: number, firstRow: number
 }
 
 /** After several questions Claude shows the answers and asks before sending them. */
-function parseClaudeSubmit(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
-  if (dialog === null || dialog?.kind === "plan") return null;
+function parseClaudeSubmit(screen: string, dialog?: ClaudeDialog): ParsedPrompt | null {
+  if (dialog?.kind === "plan" && !dialog.answered) return null;
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
   const questionIndex = findLastIndex(lines, (line) => /^Ready to submit your answers\?$/i.test(cleanLine(line)));
   if (questionIndex < 0) return null;
   let tabsIndex = findLastIndex(lines.slice(0, questionIndex), (line) => CLAUDE_TABS_RE.test(cleanLine(line)));
   if (questionIndex - tabsIndex > 40) tabsIndex = -1;
+  const asked = dialog?.kind === "ask" ? dialog : undefined;
   // without the pending call the tabs tell the review; with it, a pane too short for them still does
-  if (tabsIndex < 0 && !dialog) return null;
+  if (tabsIndex < 0 && !(asked && !asked.answered)) return null;
   const rows = parseNumberedRows(lines, questionIndex + 1, lines.length);
   if (!sequentialRows(rows) || rows.length < 2 || rows.filter((row) => row.selected).length !== 1) return null;
-  if (dialog) {
+  if (asked) {
     const tabs = tabsIndex >= 0 ? claudeTabs(lines, tabsIndex + 1) : null;
-    if (tabs?.whole && !(tabs.tabs.length === dialog.questions.length && tabs.tabs.every((tab, at) => sameHeader(tab.label, dialog.questions[at]!.header)))) return null;
-    if (!/^Submit answers$/i.test(rows[0]!.label)) return null;
+    const same = tabs?.whole === true && tabs.tabs.length === asked.questions.length && tabs.tabs.every((tab, at) => sameHeader(tab.label, asked.questions[at]!.header));
+    // the answered call's own review is over; the pending call's is the one with its tabs
+    if (asked.answered ? same : (tabs?.whole === true && !same) || !/^Submit answers$/i.test(rows[0]!.label)) return null;
   }
   const body = lines.slice(tabsIndex >= 0 ? tabsIndex + 1 : Math.max(0, questionIndex - 40), questionIndex).map(cleanLine)
     .filter((line) => line && !isDivider(line) && !/^Review your answers$/i.test(line)).join("\n");
@@ -1120,21 +1127,28 @@ function parseOmpApproval(screen: string): ParsedPrompt | null {
   });
 }
 
-function parseClaudeApproval(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
+function parseClaudeApproval(screen: string, dialog?: ClaudeDialog): ParsedPrompt | null {
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
+  const plan = dialog?.kind === "plan" ? dialog : undefined;
+  const pending = plan && !plan.answered ? plan : undefined;
   // with the pending call known, a pane narrow enough to wrap the sentence over more lines still shows it
-  const planIndex = findLastIndex(lines, (_, index) => /Claude has written up a plan and is ready to execute\. Would you like to proceed\?/i.test(wrapped(lines, index, dialog ? 6 : 3)));
+  const planIndex = findLastIndex(lines, (_, index) => /Claude has written up a plan and is ready to execute\. Would you like to proceed\?/i.test(wrapped(lines, index, pending ? 6 : 3)));
   if (planIndex >= 0) {
-    // the plan's approval is ExitPlanMode's: answered, or with another call pending, it is stale
-    if (dialog === null || dialog?.kind === "ask") return null;
+    // the plan's approval is ExitPlanMode's: with a question's call pending it is not the dialog waited on
+    if (dialog?.kind === "ask" && !dialog.answered) return null;
+    if (plan?.answered) {
+      // the answered plan, still on screen (its last line above the question), is over
+      const shown = comparable(lines.slice(0, planIndex).map(cleanLine).filter((line) => line && !isDivider(line)).at(-1) ?? "");
+      if (!shown || comparable(plan.plan).includes(shown)) return null;
+    }
     const rows = parseNumberedRows(lines, planIndex + 1, lines.length);
     if (!sequentialRows(rows) || rows.length < 3 || rows.filter((row) => row.selected).length !== 1) return null;
     const customIndex = rows.findIndex((row) => /^Tell Claude what to change$/i.test(row.label));
     const bodyStart = Math.max(0, findLastIndex(lines.slice(0, planIndex), (line) => /Ready to code\?/i.test(cleanLine(line))));
     return finishPrompt("claude", {
-      kind: "plan", title: "Ready to code?", question: dialog ? CLAUDE_PLAN_QUESTION : cleanLine(lines[planIndex]!),
+      kind: "plan", title: "Ready to code?", question: pending ? CLAUDE_PLAN_QUESTION : cleanLine(lines[planIndex]!),
       // the call's plan is whole; the screen shows what of it fits above the question
-      body: dialog ? dialog.plan : lines.slice(bodyStart, planIndex).map(cleanLine).filter((line) => !isDivider(line)).join("\n") || null,
+      body: pending ? pending.plan : lines.slice(bodyStart, planIndex).map(cleanLine).filter((line) => !isDivider(line)).join("\n") || null,
       options: rows.map((row) => ({ label: row.label, description: null })), multi_select: false,
       custom_option_index: customIndex >= 0 ? customIndex : null,
     }, {
@@ -1300,7 +1314,7 @@ function promptTailIsActive(prompt: ParsedPrompt, screen: string): boolean {
   return ends(/ctrl\+g to edit|shift\+tab to approve with this feedback/i);
 }
 
-function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog | null): ParsedPrompt | null {
+function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog): ParsedPrompt | null {
   const omo = () => [parseOmoQuestion(screen, omoAsk, omoTrusted), parseOmoTyping(screen, omoAsk, omoTrusted), parseOmoReview(screen, omoAsk, omoTrusted)];
   const candidates = agent === "codex"
     ? [parseCodexContinueMenu(screen), parseCodexQuestion(screen), parseCodexAsyncQuestion(screen), parseCodexApproval(screen)]
@@ -1340,7 +1354,7 @@ export function codexQueuedPrompt(screen: string, unanswered: QueuedQuestion[], 
  * `omoTrusted` false: an omo form on the screen counts only when that call matches it.
  * `claude`: what a Claude pane's transcript says of its dialog (pendingClaudeDialog).
  */
-export function parseInteractivePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog | null): InteractivePrompt | null {
+export function parseInteractivePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog): InteractivePrompt | null {
   const parsed = parsePrompt(agent, screen, omoAsk, omoTrusted, claude);
   return parsed ? publicPrompt(parsed) : null;
 }
@@ -1706,10 +1720,10 @@ const CLAUDE_DIALOG_RE = /enter to select|ready to submit your answers\?|would y
 /** The end of a transcript read for its pending call: the dialog's call is in its newest lines. */
 const CLAUDE_TAIL_BYTES = 1 << 20;
 /** Each transcript's dialog as last read, kept while its size and mtime stay: a poll every 2s reads it once. */
-const claudeDialogs = new Map<string, { size: number; mtimeMs: number; dialog: ClaudeDialog | null | undefined }>();
+const claudeDialogs = new Map<string, { size: number; mtimeMs: number; dialog: ClaudeDialog | undefined }>();
 
 /** What a Claude pane's transcript says of its dialog; undefined when there is none to read. */
-async function claudeDialogFor(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<ClaudeDialog | null | undefined> {
+async function claudeDialogFor(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<ClaudeDialog | undefined> {
   try {
     const path = await claudeTranscriptPath(paneId, cwds);
     const { size, mtimeMs } = await stat(path);
