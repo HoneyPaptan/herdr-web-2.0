@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
+import { stat } from "node:fs/promises";
 
 import type { HerdrPane, InteractivePrompt, PromptAnswer } from "../shared/protocol.ts";
 import { codexTranscriptPath, unansweredCodexQuestions, type QueuedQuestion } from "./codex.ts";
+import { claudeTranscriptPath } from "./conversation.ts";
 import { HerdrError, paneRead, paneSendKeys, paneSendText, sessionSnapshot } from "./herdr/client.ts";
 import { omoTranscriptForPane } from "./omo.ts";
 import { badRequest, errorResponse, jsonResponse } from "./http.ts";
@@ -24,6 +26,10 @@ const CODEX_QUEUE_POSITION_RE = /^(\d+) of (\d+)$/;
 const CLAUDE_ASK_HINT_RE = /enter to select.*(?:↑\/↓|tab\/arrow keys) to navigate.*esc to cancel/i;
 // question tabs, whole (`←  ☒ Route  ☐ Author  ✔ Submit  →`) or cut off by a narrow pane
 const CLAUDE_TABS_RE = /^←\s+[☐☒☑✔]/;
+// the two rows Claude adds under a question's options: a typed answer, then leaving the question
+const CLAUDE_CUSTOM_RE = /^Type something\.?$/i;
+const CLAUDE_CHAT = "Chat about this";
+const CLAUDE_PLAN_QUESTION = "Claude has written up a plan and is ready to execute. Would you like to proceed?";
 // Claude Code's unnumbered menus (the folder-trust check on a new folder, among others):
 // plain rows, `❯` on the selected one, under this hint
 const CLAUDE_CONFIRM_HINT_RE = /enter to confirm.*esc to (?:cancel|exit|go back)/i;
@@ -402,10 +408,136 @@ function queuedPrompt(count: number, unanswered: QueuedQuestion[], front: QueueF
   });
 }
 
-function parseClaudeQuestion(screen: string): ParsedPrompt | null {
+/**
+ * The dialog Claude Code waits on, as its tool call asked it: the questions of AskUserQuestion,
+ * or the plan of ExitPlanMode. The card's text comes from here, never cut or wrapped by the pane.
+ */
+export type ClaudeDialog = { kind: "ask"; questions: OmoAsk["questions"] } | { kind: "plan"; plan: string };
+
+/**
+ * What Claude's transcript (its .jsonl, or the tail of it) says of such a dialog in the turn it
+ * is in: the call still without a tool result; null when the turn's newest one is answered, so
+ * a dialog on screen is a stale one; undefined when the turn shows none, and the screen alone is
+ * read. Claude Code 2.1.286 can hold a session's first reply back from the file until its call
+ * is answered, so a turn without a call says nothing of the screen.
+ */
+export function pendingClaudeDialog(jsonl: string): ClaudeDialog | null | undefined {
+  const answered = new Set<string>();
+  const lines = jsonl.split("\n");
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    let entry: { type?: unknown; isSidechain?: unknown; isMeta?: unknown; message?: { content?: unknown } } | null;
+    try { entry = JSON.parse(lines[index]!) as typeof entry; } catch { continue; }
+    if (typeof entry !== "object" || entry === null || entry.isSidechain === true) continue;
+    const content = entry.message?.content;
+    if (entry.type === "user") {
+      if (entry.isMeta === true) continue;
+      const results = Array.isArray(content) ? (content as { type?: unknown; tool_use_id?: unknown }[]).filter((part) => part?.type === "tool_result") : [];
+      // the user's own message opens the turn: calls before it are another turn's
+      if (results.length === 0) return undefined;
+      for (const result of results) if (typeof result.tool_use_id === "string") answered.add(result.tool_use_id);
+      continue;
+    }
+    if (entry.type !== "assistant" || !Array.isArray(content)) continue;
+    const call = [...(content as { type?: unknown; name?: unknown; id?: unknown; input?: unknown }[])].reverse()
+      .find((part) => part?.type === "tool_use" && (part.name === "AskUserQuestion" || part.name === "ExitPlanMode"));
+    if (!call) continue;
+    if (typeof call.id !== "string") return undefined;
+    if (answered.has(call.id)) return null;
+    const input = call.input as { questions?: unknown; plan?: unknown } | undefined;
+    if (call.name === "ExitPlanMode") return typeof input?.plan === "string" && input.plan.trim() ? { kind: "plan", plan: input.plan } : undefined;
+    const questions = askedQuestions(input?.questions);
+    return questions ? { kind: "ask", questions } : undefined;
+  }
+  return undefined;
+}
+
+interface ClaudeRow { number: number; selected: boolean; checked: boolean; lineIndex: number }
+
+/** A row's text as the pane shows it (its first line, when it wraps) is the start of the label asked. */
+function startsLabel(shown: string, asked: string): boolean {
+  const start = comparable(shown);
+  return start ? comparable(asked).startsWith(start) : normalizeText(shown) !== "" && normalizeText(asked).startsWith(normalizeText(shown));
+}
+
+/**
+ * The rows of one asked question above Claude's hint, found from the last one up by number and
+ * label: its options, then the typed answer's row and `Chat about this`. A description that
+ * starts like a row (`2. …`) is no row of it, and a pane too short for the dialog shows only the
+ * last rows: those count when nothing of the dialog's head (its rule, tabs or chip) is in view
+ * above them. null when the screen does not show this question with one row highlighted.
+ */
+function claudeAskedRows(lines: string[], hintIndex: number, asked: OmoAsk["questions"][number]): ClaudeRow[] | null {
+  const count = asked.options.length;
+  const rows: ClaudeRow[] = [];
+  let below = hintIndex;
+  for (let number = count + 2; number >= 1; number -= 1) {
+    let found: ClaudeRow | null = null;
+    for (let index = below - 1; index >= Math.max(0, hintIndex - 64) && found === null; index -= 1) {
+      const match = lines[index]!.trim().match(NUMBERED_OPTION_RE);
+      if (!match || Number(match[2]) !== number) continue;
+      const boxed = /^\[[ xX✓]\]/.test(match[3]!.trim());
+      const label = match[3]!.trim().replace(/^\[[ xX✓]\]\s*/, "");
+      const matches = number === count + 2 ? !boxed && label === CLAUDE_CHAT
+        : boxed === asked.multiSelect && (number === count + 1 ? CLAUDE_CUSTOM_RE.test(label) : startsLabel(label, asked.options[number - 1]!.label));
+      if (matches) found = { number, selected: Boolean(match[1]), checked: /^\[[xX✓]\]/.test(match[3]!.trim()), lineIndex: index };
+    }
+    if (found === null) break;
+    rows.unshift(found);
+    below = found.lineIndex;
+  }
+  // the typed answer's row and the one under it are always the last two
+  if (rows.length < 2 || rows.filter((row) => row.selected).length !== 1) return null;
+  if (rows[0]!.number > 1) {
+    // a multiple choice needs every option in view: which ones are checked is on their rows
+    if (asked.multiSelect) return null;
+    const head = lines.slice(0, rows[0]!.lineIndex).map(cleanLine);
+    if (head.some((line) => SOLID_RULE_RE.test(line) || CLAUDE_TABS_RE.test(line) || /^[☐☒☑✔]\s+\S/.test(line))) return null;
+  }
+  return rows;
+}
+
+/**
+ * Claude's question, its text from the pending AskUserQuestion call and its place from the
+ * screen: the one question of the call whose rows the screen shows, under the question's own
+ * text when that is in view, with the cursor on a row in view.
+ */
+function claudeAskedQuestion(lines: string[], hintIndex: number, questions: OmoAsk["questions"]): ParsedPrompt | null {
+  const views = questions.flatMap((asked, index) => {
+    const rows = claudeAskedRows(lines, hintIndex, asked);
+    if (!rows) return [];
+    if (rows[0]!.number > 1) return [{ asked, index, rows }];
+    const tabs = claudeTabs(lines, rows[0]!.lineIndex);
+    if (tabs?.whole && !(tabs.tabs.length === questions.length && tabs.tabs.every((tab, at) => sameHeader(tab.label, questions[at]!.header)))) return [];
+    // the question over the rows (its last paragraph, when it has several) is the one asked
+    const shown = comparable(claudeQuestionText(lines, tabs?.index ?? -1, rows[0]!.lineIndex) ?? "");
+    return shown && comparable(asked.question).endsWith(shown) ? [{ asked, index, rows }] : [];
+  });
+  if (views.length !== 1) return null;
+  const { asked, index, rows } = views[0]!;
+  const count = asked.options.length;
+  const options = asked.options.map((option) => ({ label: normalizeText(option.label), description: option.description && normalizeText(option.description) }));
+  return finishPrompt("claude", {
+    kind: "question", title: questions.length > 1 ? `${normalizeText(asked.header)} · ${index + 1} of ${questions.length}` : normalizeText(asked.header),
+    question: normalizeText(asked.question), body: null, options,
+    multi_select: asked.multiSelect, custom_option_index: asked.multiSelect ? null : count,
+  }, {
+    responder: "claude-question", menuLabels: [...options.map((option) => option.label), "Type something.", CLAUDE_CHAT],
+    selectedIndex: rows.find((row) => row.selected)!.number - 1,
+    checkedOptionIndices: rows.flatMap((row) => row.checked && row.number <= count ? [row.number - 1] : []),
+    customMenuIndex: count, rejectWithEscapeIndex: null,
+  });
+}
+
+/**
+ * `dialog` is what Claude's transcript says (pendingClaudeDialog): with a pending call the card
+ * is that call's, only when the screen shows it; null is no card; undefined reads the screen alone.
+ */
+function parseClaudeQuestion(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
+  if (dialog === null) return null;
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
   const hintIndex = findLastIndex(lines, (_, index) => CLAUDE_ASK_HINT_RE.test(wrapped(lines, index)));
   if (hintIndex < 0) return null;
+  if (dialog) return dialog.kind === "ask" ? claudeAskedQuestion(lines, hintIndex, dialog.questions) : null;
   const rows = parseNumberedRows(lines, Math.max(0, hintIndex - 64), hintIndex);
   if (!sequentialRows(rows) || rows.filter((row) => row.selected).length !== 1) return null;
   const chatIndex = rows.findIndex((row) => row.label === "Chat about this");
@@ -476,15 +608,23 @@ function claudeQuestionText(lines: string[], tabsIndex: number, firstRow: number
 }
 
 /** After several questions Claude shows the answers and asks before sending them. */
-function parseClaudeSubmit(screen: string): ParsedPrompt | null {
+function parseClaudeSubmit(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
+  if (dialog === null || dialog?.kind === "plan") return null;
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
   const questionIndex = findLastIndex(lines, (line) => /^Ready to submit your answers\?$/i.test(cleanLine(line)));
   if (questionIndex < 0) return null;
-  const tabsIndex = findLastIndex(lines.slice(0, questionIndex), (line) => CLAUDE_TABS_RE.test(cleanLine(line)));
-  if (tabsIndex < 0 || questionIndex - tabsIndex > 40) return null;
+  let tabsIndex = findLastIndex(lines.slice(0, questionIndex), (line) => CLAUDE_TABS_RE.test(cleanLine(line)));
+  if (questionIndex - tabsIndex > 40) tabsIndex = -1;
+  // without the pending call the tabs tell the review; with it, a pane too short for them still does
+  if (tabsIndex < 0 && !dialog) return null;
   const rows = parseNumberedRows(lines, questionIndex + 1, lines.length);
   if (!sequentialRows(rows) || rows.length < 2 || rows.filter((row) => row.selected).length !== 1) return null;
-  const body = lines.slice(tabsIndex + 1, questionIndex).map(cleanLine)
+  if (dialog) {
+    const tabs = tabsIndex >= 0 ? claudeTabs(lines, tabsIndex + 1) : null;
+    if (tabs?.whole && !(tabs.tabs.length === dialog.questions.length && tabs.tabs.every((tab, at) => sameHeader(tab.label, dialog.questions[at]!.header)))) return null;
+    if (!/^Submit answers$/i.test(rows[0]!.label)) return null;
+  }
+  const body = lines.slice(tabsIndex >= 0 ? tabsIndex + 1 : Math.max(0, questionIndex - 40), questionIndex).map(cleanLine)
     .filter((line) => line && !isDivider(line) && !/^Review your answers$/i.test(line)).join("\n");
   return finishPrompt("claude", {
     // a menu, not a question: a typed pick submits every answer at once, so it waits for Confirm
@@ -542,6 +682,22 @@ export interface OmoAsk {
  * newest assistant message's call, unless a tool result answers it. null otherwise, or for a call
  * whose arguments are not the shape omo asks with.
  */
+/** The questions of an ask call's arguments (omo and Claude Code ask in one shape); null for another shape. */
+function askedQuestions(questions: unknown): OmoAsk["questions"] | null {
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const asked: OmoAsk["questions"] = [];
+  for (const question of questions as Record<string, unknown>[]) {
+    if (typeof question?.["header"] !== "string" || typeof question["question"] !== "string" || !Array.isArray(question["options"])) return null;
+    const options = (question["options"] as Record<string, unknown>[]).map((option) => ({
+      label: typeof option?.["label"] === "string" ? option["label"] : "",
+      description: typeof option?.["description"] === "string" && option["description"] ? option["description"] : null,
+    }));
+    if (options.length === 0 || options.some((option) => !option.label)) return null;
+    asked.push({ header: question["header"], question: question["question"], multiSelect: question["multiSelect"] === true, options });
+  }
+  return asked;
+}
+
 export function pendingOmoAsk(jsonl: string): OmoAsk | null {
   const answered = new Set<string>();
   const lines = jsonl.split("\n");
@@ -553,19 +709,8 @@ export function pendingOmoAsk(jsonl: string): OmoAsk | null {
     const call = [...(message.content as { type?: unknown; name?: unknown; id?: unknown; arguments?: unknown }[])].reverse()
       .find((part) => part?.type === "toolCall" && part.name === "ask_user_question");
     if (!call || typeof call.id !== "string" || answered.has(call.id)) return null;
-    const questions = (call.arguments as { questions?: unknown } | undefined)?.questions;
-    if (!Array.isArray(questions) || questions.length === 0) return null;
-    const ask: OmoAsk = { questions: [] };
-    for (const question of questions as Record<string, unknown>[]) {
-      if (typeof question?.["header"] !== "string" || typeof question["question"] !== "string" || !Array.isArray(question["options"])) return null;
-      const options = (question["options"] as Record<string, unknown>[]).map((option) => ({
-        label: typeof option?.["label"] === "string" ? option["label"] : "",
-        description: typeof option?.["description"] === "string" && option["description"] ? option["description"] : null,
-      }));
-      if (options.length === 0 || options.some((option) => !option.label)) return null;
-      ask.questions.push({ header: question["header"], question: question["question"], multiSelect: question["multiSelect"] === true, options });
-    }
-    return ask;
+    const questions = askedQuestions((call.arguments as { questions?: unknown } | undefined)?.questions);
+    return questions ? { questions } : null;
   }
   return null;
 }
@@ -975,17 +1120,21 @@ function parseOmpApproval(screen: string): ParsedPrompt | null {
   });
 }
 
-function parseClaudeApproval(screen: string): ParsedPrompt | null {
+function parseClaudeApproval(screen: string, dialog?: ClaudeDialog | null): ParsedPrompt | null {
   const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
-  const planIndex = findLastIndex(lines, (_, index) => /Claude has written up a plan and is ready to execute\. Would you like to proceed\?/i.test(wrapped(lines, index)));
+  // with the pending call known, a pane narrow enough to wrap the sentence over more lines still shows it
+  const planIndex = findLastIndex(lines, (_, index) => /Claude has written up a plan and is ready to execute\. Would you like to proceed\?/i.test(wrapped(lines, index, dialog ? 6 : 3)));
   if (planIndex >= 0) {
+    // the plan's approval is ExitPlanMode's: answered, or with another call pending, it is stale
+    if (dialog === null || dialog?.kind === "ask") return null;
     const rows = parseNumberedRows(lines, planIndex + 1, lines.length);
     if (!sequentialRows(rows) || rows.length < 3 || rows.filter((row) => row.selected).length !== 1) return null;
     const customIndex = rows.findIndex((row) => /^Tell Claude what to change$/i.test(row.label));
     const bodyStart = Math.max(0, findLastIndex(lines.slice(0, planIndex), (line) => /Ready to code\?/i.test(cleanLine(line))));
     return finishPrompt("claude", {
-      kind: "plan", title: "Ready to code?", question: cleanLine(lines[planIndex]!),
-      body: lines.slice(bodyStart, planIndex).map(cleanLine).filter((line) => !isDivider(line)).join("\n") || null,
+      kind: "plan", title: "Ready to code?", question: dialog ? CLAUDE_PLAN_QUESTION : cleanLine(lines[planIndex]!),
+      // the call's plan is whole; the screen shows what of it fits above the question
+      body: dialog ? dialog.plan : lines.slice(bodyStart, planIndex).map(cleanLine).filter((line) => !isDivider(line)).join("\n") || null,
       options: rows.map((row) => ({ label: row.label, description: null })), multi_select: false,
       custom_option_index: customIndex >= 0 ? customIndex : null,
     }, {
@@ -1151,7 +1300,7 @@ function promptTailIsActive(prompt: ParsedPrompt, screen: string): boolean {
   return ends(/ctrl\+g to edit|shift\+tab to approve with this feedback/i);
 }
 
-function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true): ParsedPrompt | null {
+function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog | null): ParsedPrompt | null {
   const omo = () => [parseOmoQuestion(screen, omoAsk, omoTrusted), parseOmoTyping(screen, omoAsk, omoTrusted), parseOmoReview(screen, omoAsk, omoTrusted)];
   const candidates = agent === "codex"
     ? [parseCodexContinueMenu(screen), parseCodexQuestion(screen), parseCodexAsyncQuestion(screen), parseCodexApproval(screen)]
@@ -1162,7 +1311,7 @@ function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null
       : agent === "omo" || agent === "pi" || agent === ""
         ? omo()
         : agent === "claude"
-          ? [parseClaudeQuestion(screen), parseClaudeSubmit(screen), parseClaudeApproval(screen), parseClaudeConfirm(screen), ...omo()]
+          ? [parseClaudeQuestion(screen, claude), parseClaudeSubmit(screen, claude), parseClaudeApproval(screen, claude), parseClaudeConfirm(screen), ...omo()]
           : [];
   return candidates.find((candidate): candidate is ParsedPrompt => candidate !== null && promptTailIsActive(candidate, screen)) ?? null;
 }
@@ -1189,9 +1338,10 @@ export function codexQueuedPrompt(screen: string, unanswered: QueuedQuestion[], 
 /**
  * `omoAsk`: the call an omo pane's session waits on (pendingOmoAsk), for its form's own text.
  * `omoTrusted` false: an omo form on the screen counts only when that call matches it.
+ * `claude`: what a Claude pane's transcript says of its dialog (pendingClaudeDialog).
  */
-export function parseInteractivePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true): InteractivePrompt | null {
-  const parsed = parsePrompt(agent, screen, omoAsk, omoTrusted);
+export function parseInteractivePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null, omoTrusted = true, claude?: ClaudeDialog | null): InteractivePrompt | null {
+  const parsed = parsePrompt(agent, screen, omoAsk, omoTrusted, claude);
   return parsed ? publicPrompt(parsed) : null;
 }
 
@@ -1551,9 +1701,35 @@ async function omoAskFor(paneId: string, cwd: string, panes: HerdrPane[]): Promi
   }
 }
 
+/** Claude's question, review of answers or plan approval on a screen, by a line of it: worth a look in the transcript. */
+const CLAUDE_DIALOG_RE = /enter to select|ready to submit your answers\?|would you like to proceed\?/i;
+/** The end of a transcript read for its pending call: the dialog's call is in its newest lines. */
+const CLAUDE_TAIL_BYTES = 1 << 20;
+/** Each transcript's dialog as last read, kept while its size and mtime stay: a poll every 2s reads it once. */
+const claudeDialogs = new Map<string, { size: number; mtimeMs: number; dialog: ClaudeDialog | null | undefined }>();
+
+/** What a Claude pane's transcript says of its dialog; undefined when there is none to read. */
+async function claudeDialogFor(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<ClaudeDialog | null | undefined> {
+  try {
+    const path = await claudeTranscriptPath(paneId, cwds);
+    const { size, mtimeMs } = await stat(path);
+    const known = claudeDialogs.get(path);
+    if (known && known.size === size && known.mtimeMs === mtimeMs) return known.dialog;
+    const text = await Bun.file(path).slice(Math.max(0, size - CLAUDE_TAIL_BYTES)).text();
+    // a tail starts inside a record: from the next one
+    const dialog = pendingClaudeDialog(size > CLAUDE_TAIL_BYTES ? text.slice(text.indexOf("\n") + 1) : text);
+    claudeDialogs.delete(path);
+    claudeDialogs.set(path, { size, mtimeMs, dialog });
+    if (claudeDialogs.size > 64) claudeDialogs.delete(claudeDialogs.keys().next().value!);
+    return dialog;
+  } catch {
+    return undefined; // no session, no transcript yet, or herdr did not answer: the screen alone
+  }
+}
+
 async function readKnownPrompt(
   paneId: string,
-  pane: { cwd?: string | null; agent_status?: string },
+  pane: { cwd?: string | null; foreground_cwd?: string | null; agent_status?: string },
   agent: string,
   codexHome?: string,
   panes: HerdrPane[] = [],
@@ -1566,7 +1742,10 @@ async function readKnownPrompt(
   // a pane herdr names claude, or not at all, is omo's only on evidence: herdr reports it waiting
   // on the user, or the session's pending call is the form on screen
   const omoTrusted = (agent !== "claude" && agent !== "") || pane.agent_status === "blocked";
-  const prompt = parseInteractivePrompt(agent, screen.text, omoAsk, omoTrusted);
+  // Claude's own dialogs read their text from the transcript's pending call, the screen showing where they stand
+  const claude = agent === "claude" && CLAUDE_DIALOG_RE.test(normalizeText(screen.text.replace(ANSI_RE, "")))
+    ? await claudeDialogFor(paneId, [pane.cwd, pane.foreground_cwd]) : undefined;
+  const prompt = parseInteractivePrompt(agent, screen.text, omoAsk, omoTrusted, claude);
   const count = agent === "codex" && prompt === null ? queuedQuestionCount(screen.text) : 0;
   if (count === 0 || !pane.cwd) return { prompt, screen: screen.text };
   let rollout = queueRollouts.get(paneId);

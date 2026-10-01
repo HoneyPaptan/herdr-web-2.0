@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { claudeProjectDir } from "./claude-store.ts";
 import { createServer } from "./index.ts";
 import { herdrRpc } from "./herdr/client.ts";
 
@@ -37,7 +38,46 @@ draw();
 writeFileSync(out, "");
 `;
 
+/**
+ * Claude's AskUserQuestion dialog in a pane too short for it: only its last rows show, the cursor
+ * on the first of them. ↑/↓ move over all of the question's rows and Enter logs the one it is on.
+ */
+const ASK = `
+const { appendFileSync, writeFileSync } = require("node:fs");
+const [out, spec] = process.argv.slice(2);
+const { rows, from } = JSON.parse(spec);
+let cursor = from;
+const draw = () => process.stdout.write("\\u001b[2J\\u001b[H" + [
+  "     the end of a description of a row above the screen's top.",
+  ...rows.slice(from).flatMap((row, at) => [" " + (from + at === cursor ? "❯" : " ") + " " + (from + at + 1) + ". " + row, "     About " + row + "."]),
+  " " + (cursor === rows.length ? "❯" : " ") + " " + (rows.length + 1) + ". Type something.",
+  "─".repeat(40),
+  "   " + (rows.length + 2) + ". Chat about this",
+  "",
+  "Enter to select · ↑/↓ to navigate · Esc to cancel",
+].join("\\r\\n"));
+process.stdin.setRawMode(true);
+process.stdin.resume();
+process.stdin.on("data", (chunk) => {
+  const data = chunk.toString("utf8");
+  if (/\\u001b[\\[O]B/.test(data)) cursor = Math.min(rows.length + 1, cursor + 1);
+  if (/\\u001b[\\[O]A/.test(data)) cursor = Math.max(0, cursor - 1);
+  if (data.includes("\\r")) appendFileSync(out, (rows[cursor] ?? "other") + "\\n");
+  draw();
+});
+draw();
+writeFileSync(out, "");
+`;
+
+const SESSION = "0d7c1a52-6f3e-4b1a-9c55-2f1e8a4b7c10";
+const ASKED = {
+  header: "Storage", question: "Where should the usage numbers be stored?", multiSelect: false,
+  options: ["SQLite table", "JSON state file", "In-memory cache", "Browser localStorage"].map((label) => ({ label, description: `About ${label}.` })),
+};
+const previousHome = process.env["HOME"];
+
 interface Menu { pane: string; log: string }
+let asking: Menu;
 let trust: Menu;
 let guessed: Menu;
 let drifting: Menu;
@@ -53,6 +93,26 @@ async function menu(label: string, head: string[], rows: string[], drift = false
   for (let i = 0; i < 200 && !existsSync(log); i++) await Bun.sleep(50);
   expect(existsSync(log)).toBe(true);
   await herdrRpc("pane.report_agent", { pane_id: created.root_pane.pane_id, source: "manual", agent: "claude", state: "blocked" });
+  return { pane: created.root_pane.pane_id, log };
+}
+
+/** a pane showing the end of Claude's question, its session's transcript written as `transcript` */
+async function ask(label: string, transcript: unknown[]): Promise<Menu> {
+  const created = await herdrRpc<{ workspace: { workspace_id: string }; root_pane: { pane_id: string } }>(
+    "workspace.create", { label: `herdr-web-ui-test-prompt-${label}`, cwd: root, focus: false },
+  );
+  workspaces.push(created.workspace.workspace_id);
+  const project = join(root, ".claude", "projects", claudeProjectDir(root));
+  mkdirSync(project, { recursive: true });
+  writeFileSync(join(project, `${SESSION}.jsonl`), transcript.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+  const log = join(root, `${label}.log`);
+  const spec = JSON.stringify({ rows: ASKED.options.map((option) => option.label), from: 2 });
+  await herdrRpc("pane.send_text", { pane_id: created.root_pane.pane_id, text: `exec '${join(root, "claude")}' '${join(root, "ask.js")}' '${log}' '${spec}'\n` });
+  for (let i = 0; i < 200 && !existsSync(log); i++) await Bun.sleep(50);
+  expect(existsSync(log)).toBe(true);
+  await herdrRpc("pane.report_agent", { pane_id: created.root_pane.pane_id, source: "manual", agent: "claude", state: "blocked" });
+  // the session id as Claude's own hook reports it: herdr keeps it only from that source
+  await herdrRpc("pane.report_agent_session", { pane_id: created.root_pane.pane_id, source: "herdr:claude", agent: "claude", agent_session_id: SESSION });
   return { pane: created.root_pane.pane_id, log };
 }
 
@@ -85,16 +145,24 @@ async function answer(target: Menu, promptId: string, optionIndex: number): Prom
 beforeAll(async () => {
   server = createServer({ port: 0, stateDir: join(root, "push") });
   writeFileSync(join(root, "menu.js"), MENU);
+  writeFileSync(join(root, "ask.js"), ASK);
+  // the server reads Claude's transcripts under the home of its own process
+  process.env["HOME"] = root;
   copyFileSync(process.execPath, join(root, "claude"));
   chmodSync(join(root, "claude"), 0o755);
   trust = await menu("trust", [" Accessing workspace:", "", " Quick safety check: Is this a project you created or one you trust?"], ["No, exit", "Yes, I trust this folder"]);
   // the first row reaches past the rule, the only line off the rows, so the second reads as its wrapped tail
   guessed = await menu("guessed", ["─".repeat(35), " Trust?"], ["Yes, trust and enable all hooks", "Yes, trust this folder", "No, exit"]);
+  asking = await ask("asking", [
+    { type: "user", message: { role: "user", content: "Ask me where to store it." } },
+    { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "toolu_ask", name: "AskUserQuestion", input: { questions: [ASKED] } }] } },
+  ]);
   drifting = await menu("drifting", [" Accessing workspace:", "", " Quick safety check: Is this a project you created or one you trust?"], ["No, exit", "Yes, I trust this folder", "Yes, and enable its hooks"], true);
 }, 30_000);
 
 afterAll(async () => {
   server?.stop();
+  if (previousHome === undefined) delete process.env["HOME"]; else process.env["HOME"] = previousHome;
   for (const id of workspaces) await herdrRpc("workspace.close", { workspace_id: id }).catch(() => undefined);
   rmSync(root, { recursive: true, force: true });
 });
@@ -124,5 +192,16 @@ describe("answers to Claude's unnumbered menus", () => {
     expect(response.status).toBe(409);
     await Bun.sleep(300);
     expect(chosen(drifting)).toEqual([]);
+  });
+});
+
+describe("answers to Claude's question from its transcript's pending call", () => {
+  it("shows a question the pane cuts off whole, and answers a row above the screen's top", async () => {
+    const prompt = await card(asking) as { id: string; fallback?: true; title?: string; question?: string; options: { label: string; description?: string | null }[] };
+    // the pane shows rows 3 to 6 only: the card is the call's, not the last-resort one
+    expect(prompt.fallback).toBeUndefined();
+    expect(prompt).toMatchObject({ title: "Storage", question: ASKED.question, options: ASKED.options });
+    expect((await answer(asking, prompt.id, 0)).status).toBe(200);
+    expect(await confirmed(asking)).toEqual(["SQLite table"]);
   });
 });

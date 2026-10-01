@@ -630,7 +630,7 @@ export async function labelOmoPanes(snapshot: SessionSnapshot): Promise<SessionS
 }
 
 /** Claude's transcript for a pane: herdr names the session id, claude-store.ts finds its project. */
-async function claudeTranscriptPath(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<string> {
+export async function claudeTranscriptPath(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<string> {
   const info = await herdrRpc<{ agent: { agent_session?: { value?: unknown } } }>("agent.get", { target: paneId });
   const session = info.agent.agent_session?.value;
   if (typeof session !== "string" || !SESSION_ID.test(session)) throw new ConversationUnavailable("no_session_id");

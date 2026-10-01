@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1386,4 +1386,205 @@ describe("Claude's suggestion on a prompt poll", () => {
       expect(ms).toBeLessThan(1_000);
     });
   }, 4_000);
+});
+
+describe("Claude's dialogs on a prompt poll, from the transcript's pending call", () => {
+  const SESSION = "4f49b3a6-80c8-4f14-9f66-afbd3ef98516";
+  const RULE = "─".repeat(120);
+  // asked and drawn by Claude Code 2.1.286 in a 120-column herdr pane (live, 2026-10-01)
+  const STORAGE = {
+    header: "Storage", multiSelect: false,
+    question: "Where should the voice usage numbers and their estimated monthly cost be stored so that the settings page and the sidebar meter can both read them without a second request?",
+    options: [
+      { label: "SQLite table", description: "Keep daily usage rows and the computed cost in their own SQLite table. The data survives restarts and its history can be queried, and the settings page and sidebar meter both read it through one shared endpoint." },
+      { label: "JSON state file", description: "Write one JSON file to disk with the current usage totals and the estimated monthly cost. It's easy to inspect and back up and it survives restarts, but writes need locking and history is hard to query." },
+      { label: "In-memory cache", description: "Keep usage counters and cost in a server-side in-memory cache that fills once per session. Both views get the fastest reads with no disk I/O, but every number is lost on restart unless rebuilt from logs." },
+      { label: "Browser localStorage", description: "Fetch the usage snapshot and cost once, then save it in the browser's localStorage so both views read it locally. No server changes, but the data is per browser, can go stale, and is lost when storage is cleared." },
+    ],
+  };
+  const LIMITS = {
+    header: "Limits", multiSelect: true, question: "Which limits should apply?",
+    options: [
+      { label: "Daily cap", description: "Block or warn on voice usage once the total for the current calendar day reaches a set threshold." },
+      { label: "Monthly cap", description: "Block or warn on voice usage once the total or estimated cost for the current billing month reaches a set threshold." },
+      { label: "Per-request cap", description: "Reject or trim any single voice request that would go over a set maximum duration or cost." },
+    ],
+  };
+  const ROWS = [
+    "❯ 1. SQLite table",
+    "     Keep daily usage rows and the computed cost in their own SQLite table. The data survives restarts and its history",
+    "     can be queried, and the settings page and sidebar meter both read it through one shared endpoint.",
+    "  2. JSON state file",
+    "     Write one JSON file to disk with the current usage totals and the estimated monthly cost. It's easy to inspect and",
+    "     back up and it survives restarts, but writes need locking and history is hard to query.",
+    "  3. In-memory cache",
+    "     Keep usage counters and cost in a server-side in-memory cache that fills once per session. Both views get the",
+    "     fastest reads with no disk I/O, but every number is lost on restart unless rebuilt from logs.",
+    "  4. Browser localStorage",
+    "     Fetch the usage snapshot and cost once, then save it in the browser's localStorage so both views read it locally.",
+    "     No server changes, but the data is per browser, can go stale, and is lost when storage is cleared.",
+    "  5. Type something.",
+    RULE,
+    "  6. Chat about this",
+    "",
+    "Enter to select · Tab/Arrow keys to navigate · Esc to cancel",
+  ];
+  const WHOLE = [
+    RULE,
+    "←  ☐ Storage  ☐ Limits  ✔ Submit  →",
+    "",
+    "│ Where should the voice usage numbers and their estimated monthly cost be stored so that the settings page and the",
+    "│ sidebar meter can both read them without a second request?",
+    "",
+    ...ROWS,
+  ].join("\n");
+  // a pane too short for the dialog shows its end: the first rows are above the screen's top
+  const CUT = ["     back up and it survives restarts, but writes need locking and history is hard to query.", ...ROWS.slice(6)]
+    .join("\n").replace("  4. Browser", "❯ 4. Browser");
+
+  const user = (content: unknown) => JSON.stringify({ type: "user", isSidechain: false, message: { role: "user", content } });
+  const call = (id: string, name: string, input: unknown) => JSON.stringify({ type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "tool_use", id, name, input }] } });
+  const ASKED = [user("Ask me where to store it."), call("toolu_ask", "AskUserQuestion", { questions: [STORAGE, LIMITS] })];
+  const ANSWERED = [...ASKED, user([{ type: "tool_result", tool_use_id: "toolu_ask", content: "Your questions have been answered." }])];
+  const OTHER = [user("Pick."), call("toolu_other", "AskUserQuestion", { questions: [{ header: "Color", question: "Pick a color", multiSelect: false, options: [{ label: "Red", description: "Warm." }, { label: "Green", description: "Calm." }] }] })];
+
+  interface Pane { agent: string | null; status: string; screen: string; transcript: string[] | null }
+
+  /** a herdr with one pane, and a home holding the transcript of the Claude session it names */
+  async function withPane(pane: Pane, run: (io: { keys: string[][]; show: (screen: string) => void }) => Promise<void>): Promise<void> {
+    const root = mkdtempSync(join(tmpdir(), "herdr-prompt-claude-"));
+    const path = join(root, "herdr.sock");
+    if (pane.transcript) {
+      mkdirSync(join(root, ".claude", "projects", "-work-app"), { recursive: true });
+      writeFileSync(join(root, ".claude", "projects", "-work-app", SESSION + ".jsonl"), pane.transcript.join("\n") + "\n");
+    }
+    let screen = pane.screen;
+    const keys: string[][] = [];
+    const sockets = new Set<Socket>();
+    const server = createServer((socket) => {
+      sockets.add(socket);
+      socket.on("close", () => sockets.delete(socket));
+      socket.on("error", () => undefined);
+      let input = "";
+      socket.on("data", (chunk) => {
+        input += chunk.toString();
+        if (!input.includes("\n")) return;
+        const request = JSON.parse(input.split("\n")[0]!) as { id: string; method: string; params: { keys?: string[] } };
+        const answer = (result: unknown) => socket.end(JSON.stringify({ id: request.id, result }) + "\n");
+        if (request.method === "session.snapshot") {
+          return answer({ snapshot: { panes: [{ pane_id: "p_1", agent: pane.agent, agent_status: pane.status, cwd: "/work/app" }], layouts: [] } });
+        }
+        if (request.method === "pane.read") return answer({ read: { text: screen } });
+        if (request.method === "agent.get") return answer({ agent: { agent_session: { kind: "id", value: SESSION } } });
+        if (request.method === "pane.send_keys") { keys.push(request.params.keys ?? []); return answer({}); }
+        throw new Error("unexpected fixture RPC: " + request.method);
+      });
+    });
+    await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(path, resolve); });
+    const previous = { socket: process.env["HERDR_SOCKET"], home: process.env["HOME"] };
+    process.env["HERDR_SOCKET"] = path;
+    process.env["HOME"] = root;
+    try { await run({ keys, show: (next) => { screen = next; } }); } finally {
+      if (previous.socket === undefined) delete process.env["HERDR_SOCKET"]; else process.env["HERDR_SOCKET"] = previous.socket;
+      if (previous.home === undefined) delete process.env["HOME"]; else process.env["HOME"] = previous.home;
+      for (const socket of sockets) socket.destroy();
+      server.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  async function card(): Promise<InteractivePrompt | null> {
+    const url = new URL("http://127.0.0.1/api/pane/prompt?pane_id=p_1");
+    return ((await (await handlePromptRequest(new Request(url), url))!.json()) as { prompt: InteractivePrompt | null }).prompt;
+  }
+
+  async function answer(promptId: string, optionIndex: number): Promise<number> {
+    const url = new URL("http://127.0.0.1/api/pane/prompt/answer");
+    const request = new Request(url, { method: "POST", body: JSON.stringify({ pane_id: "p_1", prompt_id: promptId, option_index: optionIndex }) });
+    return (await handlePromptRequest(request, url))!.status;
+  }
+
+  test("a dialog cut off by a short pane gets its card whole, from the pending call", async () => {
+    await withPane({ agent: "claude", status: "working", screen: CUT, transcript: ASKED }, async ({ keys }) => {
+      const prompt = await card();
+      expect(prompt).toMatchObject({ agent: "claude", kind: "question", title: "Storage · 1 of 2", question: STORAGE.question, custom_option_index: 4 });
+      expect(prompt?.options).toEqual(STORAGE.options);
+      // from the cursor on the fourth row up to the first, which the pane does not show
+      expect(await answer(prompt!.id, 0)).toBe(200);
+      expect(keys).toEqual([["up"], ["up"], ["up"], ["enter"]]);
+    });
+  });
+
+  test("a description that starts like a row does not hide the card", async () => {
+    const numbered = { ...STORAGE, options: [{ label: "Fast", description: "Two things matter here: 1. speed and 2. cost of the reads." }, { label: "Safe", description: "Durable." }] };
+    // the question wraps where the pane ends, at a space
+    const screen = [RULE, " ☐ Storage", "", STORAGE.question.slice(0, STORAGE.question.indexOf(" settings")), STORAGE.question.slice(STORAGE.question.indexOf(" settings") + 1), "",
+      "❯ 1. Fast", "     Two things matter here: 1. speed and", "     2. cost of the reads.", "  2. Safe", "     Durable.", "  3. Type something.", RULE, "  4. Chat about this", "",
+      "Enter to select · ↑/↓ to navigate · Esc to cancel"].join("\n");
+    await withPane({ agent: "claude", status: "working", screen, transcript: [user("Ask."), call("toolu_n", "AskUserQuestion", { questions: [numbered] })] }, async () => {
+      const prompt = await card();
+      expect(prompt).toMatchObject({ kind: "question", title: "Storage", question: STORAGE.question });
+      expect(prompt?.options).toEqual(numbered.options);
+    });
+  });
+
+  test("the whole dialog reads its text from the call, and an answer for another card is stale", async () => {
+    await withPane({ agent: "claude", status: "blocked", screen: WHOLE, transcript: ASKED }, async ({ keys, show }) => {
+      const prompt = await card();
+      expect(prompt).toMatchObject({ title: "Storage · 1 of 2", question: STORAGE.question });
+      expect(prompt?.options[0]?.description).toBe(STORAGE.options[0]!.description);
+      expect(prompt?.fallback).toBeUndefined();
+      // the pane went on to the next question: the card's id no longer answers
+      show(WHOLE.replace("☐ Storage", "☒ Storage").replace(/│ Where[\s\S]*$/, ["Which limits should apply?", "", "❯ 1. [ ] Daily cap", "  2. [ ] Monthly cap", "  3. [ ] Per-request cap", "  4. [ ] Type something", "     Submit", RULE, "  5. Chat about this", "", "Enter to select · Tab/Arrow keys to navigate · Esc to cancel"].join("\n")));
+      expect(await answer(prompt!.id, 1)).toBe(409);
+      expect(keys).toEqual([]);
+      expect(await card()).toMatchObject({ title: "Limits · 2 of 2", multi_select: true, options: LIMITS.options });
+    });
+  });
+
+  test("no card for the dialog's text in a shell or in another agent's pane", async () => {
+    for (const agent of [null, "codex", "gjc"]) {
+      await withPane({ agent, status: agent ? "working" : "unknown", screen: WHOLE, transcript: ASKED }, async () => {
+        expect(await card()).toBeNull();
+      });
+    }
+    // printed in a Claude pane's shell escape, the shell's prompt under it
+    await withPane({ agent: "claude", status: "working", screen: WHOLE + "\n$ ", transcript: ASKED }, async () => {
+      expect(await card()).toBeNull();
+    });
+  });
+
+  test("no card once the transcript shows the call answered, whatever the screen still shows", async () => {
+    await withPane({ agent: "claude", status: "working", screen: WHOLE, transcript: ANSWERED }, async () => {
+      expect(await card()).toBeNull();
+    });
+  });
+
+  test("no card from a transcript whose pending call is not the dialog on screen", async () => {
+    await withPane({ agent: "claude", status: "working", screen: WHOLE, transcript: OTHER }, async () => {
+      expect(await card()).toBeNull();
+    });
+    await withPane({ agent: "claude", status: "working", screen: CUT, transcript: OTHER }, async () => {
+      expect(await card()).toBeNull();
+    });
+  });
+
+  test("no card once the screen moved on, though the call is still pending", async () => {
+    await withPane({ agent: "claude", status: "working", screen: WHOLE + "\n\n● Reading the settings page…\n", transcript: ASKED }, async () => {
+      expect(await card()).toBeNull();
+    });
+    await withPane({ agent: "claude", status: "working", screen: "● Reading the settings page…\n\n" + RULE + "\n❯ \n" + RULE + "\n", transcript: ASKED }, async () => {
+      expect(await card()).toBeNull();
+    });
+  });
+
+  test("without a transcript the screen alone is read, as before", async () => {
+    await withPane({ agent: "claude", status: "working", screen: WHOLE, transcript: null }, async () => {
+      expect(await card()).toMatchObject({ kind: "question", title: "Storage · 1 of 2", question: STORAGE.question });
+    });
+    // a turn whose reply is not in the file yet says nothing of the screen
+    await withPane({ agent: "claude", status: "working", screen: WHOLE, transcript: [user("Ask me where to store it.")] }, async () => {
+      expect(await card()).toMatchObject({ kind: "question", title: "Storage · 1 of 2" });
+    });
+  });
 });
