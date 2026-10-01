@@ -12,6 +12,12 @@ between releases do not reach them. Remote-PC runtime bundles are versioned sepa
   no longer shown as OmO or counted as a second OmO in its folder. Only the program a pane runs
   counts, or the script that node or bun runs
   ([#249](https://github.com/devswha/herdr-web-ui/pull/249)).
+- Claude Code's question, answer review and plan approval get their card when the pane cuts the
+  dialog off or wraps it: a question taller than the pane, or a description that starts like an
+  option, used to leave no card. The card's text now comes from the pending tool call in Claude's
+  transcript, whole, and the screen only tells where the dialog stands. A dialog the transcript
+  shows answered gets no card
+  ([#254](https://github.com/devswha/herdr-web-ui/pull/254)).
 
 ## [0.3.39] - 2026-10-01
 
