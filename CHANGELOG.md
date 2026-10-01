@@ -12,6 +12,12 @@ between releases do not reach them. Remote-PC runtime bundles are versioned sepa
   no longer shown as OmO or counted as a second OmO in its folder. Only the program a pane runs
   counts, or the script that node or bun runs
   ([#249](https://github.com/devswha/herdr-web-ui/pull/249)).
+- **New session** with Gajae Code starts on a Windows PC. The command was typed the way a POSIX
+  shell wants it and ended with a newline, which PowerShell takes for a line break, so it never
+  ran; and herdr names only the pane's shell on Windows, so the start was never seen. The
+  command is now written for the pane's shell (PowerShell or cmd), run with the Enter key, and
+  found among the shell's child processes. OmO is not offered on a Windows PC for now
+  ([#251](https://github.com/devswha/herdr-web-ui/pull/251)).
 - Claude Code's question, answer review and plan approval get their card when the pane cuts the
   dialog off or wraps it: a question taller than the pane, or a description that starts like an
   option, used to leave no card. The card's text now comes from the pending tool call in Claude's
