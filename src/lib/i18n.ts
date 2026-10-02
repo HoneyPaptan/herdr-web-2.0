@@ -10,9 +10,6 @@
  * call the module-level `t`, which reads the language the SettingsProvider last set.
  */
 import { useMemo } from "react";
-import { JA } from "./i18n.ja.ts";
-import { KO } from "./i18n.ko.ts";
-import { ZH } from "./i18n.zh.ts";
 import { useSettings } from "./settings.ts";
 
 export const LANGUAGE_SETTINGS = ["system", "en", "ko", "ja", "zh"] as const;
@@ -24,7 +21,24 @@ export const LANGUAGE_NAMES: Record<LanguageSetting, string> = { system: "System
 /** The BCP 47 tag for `<html lang>` and Intl formatting. */
 export const LOCALE_TAGS: Record<Language, string> = { en: "en-US", ko: "ko-KR", ja: "ja-JP", zh: "zh-CN" };
 
-const DICTIONARIES: Record<Language, Record<string, string>> = { en: {}, ko: KO, ja: JA, zh: ZH };
+type Dictionary = Record<string, string>;
+
+const DICTIONARY_LOADERS: Record<Exclude<Language, "en">, () => Promise<Dictionary>> = {
+  ko: () => import("./i18n.ko.ts").then((module) => module.KO),
+  ja: () => import("./i18n.ja.ts").then((module) => module.JA),
+  zh: () => import("./i18n.zh.ts").then((module) => module.ZH),
+};
+
+const dictionaries: Partial<Record<Language, Dictionary>> = { en: {} };
+
+export function hasDictionary(language: Language): boolean {
+  return dictionaries[language] !== undefined;
+}
+
+export async function loadDictionary(language: Language): Promise<void> {
+  if (language === "en" || hasDictionary(language)) return;
+  dictionaries[language] = await DICTIONARY_LOADERS[language]();
+}
 
 /**
  * `system` follows the browser: the first tag in its list for a translated language picks it
@@ -59,7 +73,7 @@ export type Vars = Record<string, string | number>;
 
 /** The text for `key` in `language`, placeholders filled; pure, for tests and for both `t`s. */
 export function translate(language: Language, key: string, vars?: Vars): string {
-  const text = DICTIONARIES[language][key] ?? key;
+  const text = dictionaries[language]?.[key] ?? key;
   return vars === undefined ? text : text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match));
 }
 

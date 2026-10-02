@@ -6,7 +6,7 @@
  */
 
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LANGUAGE_SETTINGS, LOCALE_TAGS, resolveLanguage, setCurrentLanguage, type Language, type LanguageSetting } from "./i18n.ts";
+import { hasDictionary, LANGUAGE_SETTINGS, loadDictionary, LOCALE_TAGS, resolveLanguage, setCurrentLanguage, type Language, type LanguageSetting } from "./i18n.ts";
 import type { AlertPrefs, DoneAlerts } from "../../shared/notify-policy.ts";
 import { chatFontStack, sanitizeFontFamily } from "./fontFamily.ts";
 
@@ -287,6 +287,16 @@ interface SettingsContextValue {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
+function useLoadedLanguage(wanted: Language): Language {
+  const [loaded, setLoaded] = useState<Language>(() => (hasDictionary(wanted) ? wanted : "en"));
+  useEffect(() => {
+    let live = true;
+    void loadDictionary(wanted).then(() => { if (live) setLoaded(wanted); }, () => undefined);
+    return () => { live = false; };
+  }, [wanted]);
+  return loaded;
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [systemDark, setSystemDark] = useState(() => resolveTheme("system") === "dark");
@@ -307,7 +317,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     window.addEventListener("languagechange", onChange);
     return () => window.removeEventListener("languagechange", onChange);
   }, []);
-  const resolvedLanguage = resolveLanguage(settings.language, browserLanguages);
+  const resolvedLanguage = useLoadedLanguage(resolveLanguage(settings.language, browserLanguages));
   // helpers outside React read this during the same render, so it is set before the children render
   setCurrentLanguage(resolvedLanguage);
 

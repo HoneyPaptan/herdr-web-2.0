@@ -1,10 +1,10 @@
-import { describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { JA } from "./i18n.ja.ts";
 import { KO } from "./i18n.ko.ts";
 import { ZH } from "./i18n.zh.ts";
-import { resolveLanguage, translate } from "./i18n.ts";
+import { loadDictionary, resolveLanguage, translate } from "./i18n.ts";
 
 const root = join(import.meta.dir, "..");
 
@@ -107,6 +107,8 @@ describe.each(Object.entries(DICTIONARIES))("%s dictionary", (_name, dictionary)
 });
 
 describe("translate", () => {
+  beforeAll(() => Promise.all([loadDictionary("ko"), loadDictionary("ja"), loadDictionary("zh")]));
+
   it("fills placeholders, falls back to English, and leaves unknown placeholders alone", () => {
     expect(translate("en", "Worked for {duration}", { duration: "7s" })).toBe("Worked for 7s");
     expect(translate("ko", "Worked for {duration}", { duration: "7초" })).toBe(KO["Worked for {duration}"]!.replace("{duration}", "7초"));
