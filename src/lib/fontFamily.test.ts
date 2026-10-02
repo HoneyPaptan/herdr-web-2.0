@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
-import { chatFontStack, loadFontStack, TERMINAL_FONT_STACK, terminalFontStack } from "./fontFamily.ts";
+import { chatFontStack, loadFontStack, terminalBootStack, TERMINAL_FONT_STACK, terminalFontStack } from "./fontFamily.ts";
 
 describe("terminal font stack", () => {
   it("is the built-in stack when nothing is typed", () => {
@@ -10,9 +10,7 @@ describe("terminal font stack", () => {
 
   it("puts the typed list after the icon font and in front of the text fonts, never in place of them", () => {
     const stack = terminalFontStack('D2Coding, "Cascadia Mono"');
-    // the bundled icon font never sizes a cell, so it stays first and its icons draw over any font
-    expect(stack.startsWith('"Symbols Nerd Font Mono", D2Coding, "Cascadia Mono", "JetBrains Mono"')).toBe(true);
-    // a missing font falls through to today's order, and Malgun Gothic stays the last resort
+    expect(stack.startsWith('"Symbols Nerd Font Mono", D2Coding, "Cascadia Mono", "JetBrains Mono Variable"')).toBe(true);
     expect(stack.replace('D2Coding, "Cascadia Mono", ', "")).toBe(TERMINAL_FONT_STACK);
     expect(stack.endsWith('monospace, "Malgun Gothic"')).toBe(true);
   });
@@ -65,5 +63,30 @@ describe("waiting for a font", () => {
   it("does nothing without a font loading API", async () => {
     Object.defineProperty(globalThis, "document", { value: {}, configurable: true, writable: true });
     await expect(loadFontStack("D2Coding", 13)).resolves.toBeUndefined();
+  });
+});
+
+describe("terminalBootStack", () => {
+  function withFontsReady(ready: boolean, run: () => void): void {
+    const previous = globalThis.document;
+    Object.defineProperty(globalThis, "document", { configurable: true, value: { fonts: { check: () => ready } } });
+    try {
+      run();
+    } finally {
+      Object.defineProperty(globalThis, "document", { configurable: true, value: previous });
+    }
+  }
+
+  it("opens on the bundled face once it has loaded", () => {
+    withFontsReady(true, () => expect(terminalBootStack(14)).toBe(TERMINAL_FONT_STACK));
+  });
+
+  it("opens without the bundled face while it loads, so applying it later remeasures the cell", () => {
+    withFontsReady(false, () => {
+      const boot = terminalBootStack(14);
+      expect(boot).not.toBe(TERMINAL_FONT_STACK);
+      expect(boot).not.toContain("JetBrains Mono Variable");
+      expect(boot.startsWith('"Symbols Nerd Font Mono", "JetBrains Mono"')).toBe(true);
+    });
   });
 });
