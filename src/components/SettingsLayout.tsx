@@ -41,7 +41,7 @@ export function SettingsTabs<T extends string>({ title, tabs, value, onChange, c
     listRef.current?.querySelectorAll<HTMLElement>("[role=tab]")[target]?.focus();
   };
   return (
-    <div className={narrow ? "flex h-full min-h-0 flex-col gap-3" : "flex gap-5"}>
+    <div className={narrow ? "flex h-full min-h-0 w-full min-w-0 flex-col gap-3" : "flex min-w-0 gap-5"}>
       <div className={cn("flex shrink-0 flex-col gap-3", narrow ? "min-w-0" : "w-32")}>
         {title}
         <div
