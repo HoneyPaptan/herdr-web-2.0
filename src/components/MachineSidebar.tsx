@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ShortcutKeys } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineState, MachineUpdate } from "../../shared/machines.ts";
 import { MachineContext } from "../lib/machineContext.tsx";
@@ -35,18 +36,18 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
 };
 
 interface Props { machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onAdd(): void; onSetup(machine: Machine, update?: boolean): void }
-const SIDEBAR_ACTION = "w-full justify-start px-1.5 text-ui text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80 dark:hover:bg-sidebar-accent/50";
-const KEYCAPS = "ml-auto text-muted-foreground/60 max-md:hidden";
+const SIDEBAR_ACTION = "w-full justify-start px-1.5 pointer-coarse:h-9 text-ui text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80 dark:hover:bg-sidebar-accent/50";
+const KEYCAPS = "ml-auto max-md:hidden";
 const MENU_ROW = "cursor-pointer text-ui";
 
 function SidebarActions({ target, onNew }: { target: Machine | undefined; onNew(): void }) {
   const t = useT();
   return <div className="flex shrink-0 flex-col gap-px px-2 pt-2 pb-1">
     <Button variant="ghost" size="sm" className={SIDEBAR_ACTION} disabled={target !== undefined && target.state !== "connected"} aria-label={target ? t("New session on {name}", { name: target.name }) : t("New session")} onClick={onNew}>
-      <Plus />{t("New session")}<span className={KEYCAPS}>⌘⇧N</span>
+      <Plus />{t("New session")}<ShortcutKeys keys={["⌘", "⇧", "N"]} className={KEYCAPS} />
     </Button>
     <Button variant="ghost" size="sm" className={SIDEBAR_ACTION} onClick={openPalette}>
-      <Search />{t("Search")}<span className={KEYCAPS}>⌘⇧K</span>
+      <Search />{t("Search")}<ShortcutKeys keys={["⌘", "⇧", "K"]} className={KEYCAPS} />
     </Button>
   </div>;
 }
@@ -89,7 +90,7 @@ export function MachineSidebar(props: Props) {
       {installHelpOpen && <p className="px-1.5 text-ui text-muted-foreground/60" role="status">{help}</p>}
       <div className="sidebar-footer-row flex min-w-0 items-center gap-1">
         <Button variant="ghost" size="sm" className={cn("sidebar-footer-action min-w-0 flex-1", SIDEBAR_ACTION)} onClick={props.actions.openSettings}>
-          <Settings />{t("Settings")}<span className={KEYCAPS}>⌘⇧,</span>
+          <Settings />{t("Settings")}<ShortcutKeys keys={["⌘", "⇧", ","]} className={KEYCAPS} />
         </Button>
         <UsageMeters />
         <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
