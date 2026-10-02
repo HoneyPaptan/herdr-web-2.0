@@ -53,6 +53,7 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     assert.equal(await strip.count(), 0);
     assert.deepEqual(asked, [], "no usage request before the user turns it on");
     await settingsButton.click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
     assert.equal(await toggle.getAttribute("aria-checked"), "false");
     await toggle.click();
     await page.keyboard.press("Escape");
@@ -90,7 +91,8 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     // Settings: what is left instead, an account hidden from the strip, another moved up
     const names = () => page.locator(".usage-popover .usage-provider").evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")));
     await settingsButton.click();
-    await page.getByRole("button", { name: "Remaining", exact: true }).click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
+    await page.getByRole("radio", { name: "Remaining", exact: true }).click();
     await page.getByRole("switch", { name: "Show Codex · me@work.example", exact: true }).click();
     await page.getByRole("button", { name: "Move Cursor up", exact: true }).click();
     await page.keyboard.press("Escape");
@@ -104,6 +106,7 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     if (process.env.UI_EVIDENCE_DIR) await page.locator(".sidebar-shell").screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "usage-popover-left.png") });
     await page.keyboard.press("Escape");
     await settingsButton.click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
     if (process.env.UI_EVIDENCE_DIR) {
       await page.locator(".settings-section", { has: page.getByRole("heading", { name: "Subscription usage", exact: true }) }).screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "usage-settings.png") });
     }
@@ -115,6 +118,7 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
 
     // turned off in Settings: gone, and no longer asked for
     await settingsButton.click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
     await toggle.click();
     await strip.waitFor({ state: "detached" });
     const before = asked.length;
@@ -145,6 +149,7 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     // Settings on the phone: every account row fits its card, controls included
     await page.keyboard.press("Escape");
     await page.locator(".sidebar-footer-row .sidebar-footer-action").click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
     const accounts = page.locator(".usage-accounts");
     await accounts.scrollIntoViewIfNeeded();
     assert.equal(await accounts.locator(".usage-accounts-row").count(), 7);
@@ -206,7 +211,8 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
 
     // back beside Settings: the panel stops asking and the strip takes over
     await page.locator(".sidebar-footer-row .sidebar-footer-action").click();
-    await page.getByRole("button", { name: "Beside Settings", exact: true }).click();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
+    await page.getByRole("radio", { name: "Beside Settings", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.locator(".usage-strip").waitFor();
     assert.equal(await page.locator(".usage-panel").count(), 0);

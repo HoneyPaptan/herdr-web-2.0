@@ -29,6 +29,7 @@ export async function checkWakeLock(browser: Browser, origin: string, paneId: st
     await page.goto(`${origin}/?pane=${encodeURIComponent(paneId)}`);
     await page.locator(".conn-live").waitFor();
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Phone", exact: true }).click();
     const toggle = page.getByRole("switch", { name: "Keep screen on", exact: true });
     assert.equal(await toggle.getAttribute("aria-checked"), "false");
     assert.equal(await page.evaluate(() => (window as any).wakeLockStats.requests), 0);
@@ -58,6 +59,7 @@ export async function checkWakeLock(browser: Browser, origin: string, paneId: st
     await page.reload();
     await page.waitForFunction(() => (window as any).wakeLockStats.requests === 1);
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Phone", exact: true }).click();
     assert.equal(await toggle.getAttribute("aria-checked"), "true", "setting survives a reload");
     await toggle.click();
     await page.waitForFunction(() => (window as any).wakeLockStats.releases === 1);
@@ -82,6 +84,7 @@ export async function checkWakeLock(browser: Browser, origin: string, paneId: st
     await page.reload();
     await page.locator(".conn-live").waitFor();
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Phone", exact: true }).click();
     await toggle.waitFor();
     assert.equal(await toggle.getAttribute("aria-checked"), "true");
     assert.equal(await page.evaluate(() => (window as any).wakeLockStats.requests), 0, "no pane, no screen lock");

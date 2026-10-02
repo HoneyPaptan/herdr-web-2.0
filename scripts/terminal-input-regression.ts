@@ -77,6 +77,7 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     assert.equal(sent.length, 1);
 
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Shortcuts", exact: true }).click();
     const shortcut = page.getByRole("combobox", { name: "Command palette", exact: true });
     await shortcut.selectOption("p");
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
@@ -84,6 +85,7 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     await page.getByRole("dialog", { name: "Command palette", exact: true }).waitFor();
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Shortcuts", exact: true }).click();
     await shortcut.selectOption("off");
     await page.getByRole("combobox", { name: "Next pane", exact: true }).selectOption("p");
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
@@ -94,6 +96,7 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     await page.goto(`${origin}/?pane=${encodeURIComponent(pane)}`);
     await line.waitFor();
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Shortcuts", exact: true }).click();
     await page.getByRole("button", { name: "Reset shortcuts", exact: true }).click();
     if (process.env.UI_EVIDENCE_DIR) {
       const { mkdirSync } = await import("node:fs");

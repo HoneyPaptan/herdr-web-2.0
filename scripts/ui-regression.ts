@@ -330,6 +330,7 @@ try {
   // chosen in Settings, and the box has no button for it
   const quickRow = async (show: boolean): Promise<void> => {
     await page.keyboard.press("Control+Shift+Comma");
+    await page.getByRole("tab", { name: "Chat", exact: true }).click();
     const toggle = page.getByRole("switch", { name: "Show above the message box", exact: true });
     if ((await toggle.getAttribute("aria-checked")) !== String(show)) await toggle.click();
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
@@ -414,7 +415,7 @@ try {
   // Every directory has a fold caret, even with one pane; opening a pane reveals its folder.
   const split = await herdrRpc<{ pane: { pane_id: string } }>("pane.split", { target_pane_id: paneB, direction: "down", focus: false });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.locator('.segmented[aria-label="Sidebar grouping"]').getByRole("button", { name: "By folder", exact: true }).click();
+  await page.locator('[role=radiogroup][aria-label="Sidebar grouping"]').getByRole("radio", { name: "By folder", exact: true }).click();
   await page.getByRole("button", { name: "Close settings", exact: true }).click();
   const sectionB = page.locator(`.directory-group[data-directory="${join(root, "b")}"]`);
   const toggleB = sectionB.locator(".directory-header");

@@ -155,21 +155,21 @@ try {
   };
   const otherWorkspace = `.workspace:has(.workspace-label[title=${JSON.stringify(other.label)}])`;
   const workspaceToggle = `${otherWorkspace} .workspace-toggle`;
-  const grouping = '.settings-dialog .segmented[aria-label="Sidebar grouping"]';
+  const grouping = '.settings-dialog [role=radiogroup][aria-label="Sidebar grouping"]';
   const switchGrouping = async (mode: "workspace" | "directory", states: readonly State[]): Promise<void> => {
     const documentIdentity = await page.evaluate(() => performance.timeOrigin);
     await changeState(page, [{ selector: grouping }],
       () => page.getByRole("button", { name: "Settings", exact: true }).click(), "grouping Settings opens");
     assert.equal(await page.locator(grouping).count(), 1);
-    assert.equal(await page.locator(grouping).getByRole("button", { name: "By workspace", exact: true }).count(), 1);
-    assert.equal(await page.locator(grouping).getByRole("button", { name: "By folder", exact: true }).count(), 1);
+    assert.equal(await page.locator(grouping).getByRole("radio", { name: "By workspace", exact: true }).count(), 1);
+    assert.equal(await page.locator(grouping).getByRole("radio", { name: "By folder", exact: true }).count(), 1);
     await changeState(page, states,
-      () => page.locator(grouping).getByRole("button", {
+      () => page.locator(grouping).getByRole("radio", {
         name: mode === "workspace" ? "By workspace" : "By folder", exact: true,
       }).click(), `${mode} grouping applies without reload`);
-    assert.equal(await page.locator(grouping).getByRole("button", {
+    assert.equal(await page.locator(grouping).getByRole("radio", {
       name: mode === "workspace" ? "By workspace" : "By folder", exact: true,
-    }).getAttribute("aria-pressed"), "true");
+    }).getAttribute("aria-checked"), "true");
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentIdentity, "grouping must not replace the document");
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("herdr-web-ui:settings") ?? "{}").sidebarGrouping), mode);
     await changeState(page, [{ selector: ".settings-dialog", count: 0 }],
@@ -468,7 +468,7 @@ try {
   assert.ok(groupingControl);
   await screenshot("settings-en");
   await changeState(page, [{ selector: "html", attribute: ["lang", "ko-KR"] }],
-    () => page.locator(".settings-dialog").getByRole("button", { name: "한국어", exact: true }).click(),
+    () => page.locator(".settings-dialog").getByRole("radio", { name: "한국어", exact: true }).click(),
     "Settings changes the UI language to Korean");
   await groupingControl.scrollIntoViewIfNeeded();
   await screenshot("settings-ko");
@@ -494,7 +494,7 @@ try {
   await page.getByRole("button", { name: "설정", exact: true }).click();
   await page.locator(".settings-dialog").waitFor({ state: "attached" });
   await changeState(page, [{ selector: "html", attribute: ["lang", "en-US"] }],
-    () => page.locator(".settings-dialog").getByRole("button", { name: "English", exact: true }).click(),
+    () => page.locator(".settings-dialog").getByRole("radio", { name: "English", exact: true }).click(),
     "Settings restores English action locators");
   await changeState(page, [{ selector: ".settings-dialog", count: 0 }],
     () => page.keyboard.press("Escape"), "English Settings closes");
