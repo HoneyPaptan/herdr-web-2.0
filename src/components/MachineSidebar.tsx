@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Monitor, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Ellipsis, Monitor, Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { Machine, MachineState, MachineUpdate } from "../../shared/machines.ts";
 import { MachineContext } from "../lib/machineContext.tsx";
 import { answerMachineSetup, machineRequest } from "../lib/api.ts";
@@ -11,6 +22,7 @@ import { NeedsInput } from "./NeedsInput.tsx";
 import { UsageMeters, UsagePanel } from "./UsageMeters.tsx";
 import "./Machines.css";
 import { useT } from "../lib/i18n.ts";
+import { openPalette } from "../store/ui.ts";
 
 declare const __APP_VERSION__: string;
 
@@ -23,32 +35,64 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
 };
 
 interface Props { machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onAdd(): void; onSetup(machine: Machine, update?: boolean): void }
+const SIDEBAR_ACTION = "w-full justify-start px-1.5 text-ui text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80 dark:hover:bg-sidebar-accent/50";
+const KEYCAPS = "ml-auto text-muted-foreground/60 max-md:hidden";
+const MENU_ROW = "cursor-pointer text-ui";
+
+function SidebarActions({ target, onNew }: { target: Machine | undefined; onNew(): void }) {
+  const t = useT();
+  return <div className="flex shrink-0 flex-col gap-px px-2 pt-2 pb-1">
+    <Button variant="ghost" size="sm" className={SIDEBAR_ACTION} disabled={target !== undefined && target.state !== "connected"} aria-label={target ? t("New session on {name}", { name: target.name }) : t("New session")} onClick={onNew}>
+      <Plus />{t("New session")}<span className={KEYCAPS}>⌘⇧N</span>
+    </Button>
+    <Button variant="ghost" size="sm" className={SIDEBAR_ACTION} onClick={openPalette}>
+      <Search />{t("Search")}<span className={KEYCAPS}>⌘⇧K</span>
+    </Button>
+  </div>;
+}
+
+function SidebarMore({ version, onAdd, onInstallHelp }: { version: string | null; onAdd(): void; onInstallHelp(): void }) {
+  const t = useT();
+  const { canInstall, installed, install } = useInstallPrompt();
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="ghost" size="icon-sm" className="sidebar-more shrink-0 opacity-80 transition-opacity hover:opacity-100" aria-label={t("More actions")}>
+        <Ellipsis />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent side="top" align="end" sideOffset={4} className="w-[min(240px,calc(100vw-1rem))]">
+      <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5 text-ui font-normal">
+        <span className="truncate text-foreground">herdr web ui v{__APP_VERSION__}</span>
+        <span className="truncate text-muted-foreground/60">{version ? `herdr ${version}` : t("herdr offline")}</span>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem className={MENU_ROW} onSelect={onAdd}><Monitor />{t("Add PC")}</DropdownMenuItem>
+      {!installed && <DropdownMenuItem className={MENU_ROW} onSelect={() => { if (canInstall) void install(); else onInstallHelp(); }}><Download />{t("Install app")}</DropdownMenuItem>}
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
+
 export function MachineSidebar(props: Props) {
   const t = useT();
-  const { canInstall, installed, install, help } = useInstallPrompt();
+  const { help } = useInstallPrompt();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const target = props.machines.find((machine) => machine.id === props.selectedMachineId);
   return <div className="sidebar-shell">
-    <div className="sidebar-topbar sidebar-topbar-row">
-      <button className="btn sidebar-new-session" disabled={target !== undefined && target.state !== "connected"} title={target ? t("New session on {name}", { name: target.name }) : t("New session")} onClick={props.actions.openNewSession}><Plus aria-hidden="true" />{t("New session")}</button>
-      <button className="btn btn-ghost sidebar-add-pc" onClick={props.onAdd}><Monitor aria-hidden="true" />{t("Add PC")}</button>
-    </div>
+    <SidebarActions target={target} onNew={props.actions.openNewSession} />
     <UsagePanel />
     <div className="machine-list" aria-label={t("PCs and workspaces")}>
       <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
       {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} />)}
       {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
     </div>
-    <footer className="sidebar-footer">
-      {!installed && <button className="btn btn-ghost sidebar-footer-action" aria-expanded={canInstall ? undefined : installHelpOpen} onClick={() => { if (canInstall) void install(); else setInstallHelpOpen(!installHelpOpen); }}><Download aria-hidden="true" />{t("Install app")}</button>}
-      {!installed && !canInstall && installHelpOpen && <p className="sidebar-install-help" role="status">{help}</p>}
-      <div className="sidebar-footer-row">
-        <button className="btn btn-ghost sidebar-footer-action" title={t("Settings (⌘⇧,)")} onClick={props.actions.openSettings}><Settings aria-hidden="true" />{t("Settings")}</button>
+    <footer className="sidebar-footer relative flex shrink-0 flex-col gap-1 border-t border-border px-2 pt-2 pb-[calc(--spacing(2)+env(safe-area-inset-bottom,0px))]">
+      {installHelpOpen && <p className="px-1.5 text-ui text-muted-foreground/60" role="status">{help}</p>}
+      <div className="sidebar-footer-row flex min-w-0 items-center gap-1">
+        <Button variant="ghost" size="sm" className={cn("sidebar-footer-action min-w-0 flex-1", SIDEBAR_ACTION)} onClick={props.actions.openSettings}>
+          <Settings />{t("Settings")}<span className={KEYCAPS}>⌘⇧,</span>
+        </Button>
         <UsageMeters />
-      </div>
-      <div className="sidebar-brandline">
-        <span className="sidebar-app-name">herdr web ui v{__APP_VERSION__}</span>
-        {props.version && <span className="pill">herdr {props.version}</span>}
+        <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
       </div>
     </footer>
   </div>;

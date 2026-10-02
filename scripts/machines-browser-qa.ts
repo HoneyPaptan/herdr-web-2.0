@@ -75,7 +75,8 @@ try {
   await page.getByRole("button", { name: "New session on QA second PC", exact: true }).click();
   const create = page.getByRole("dialog", { name: "New session · QA second PC", exact: true });
   await create.waitFor(); await create.getByRole("button", { name: "Close new session dialog", exact: true }).click();
-  await page.getByRole("button", { name: "Add PC", exact: true }).click();
+  await page.locator(".sidebar-more").click();
+  await page.getByRole("menuitem", { name: "Add PC", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Add PC", exact: true }); await dialog.waitFor();
   await page.screenshot({ path: join(evidence, "desktop-add-pc-dark.png") });
   await dialog.getByRole("button", { name: "Close PC setup" }).click();
@@ -88,7 +89,8 @@ try {
   await page.getByRole("button", { name: "Open workspace list", exact: true }).click();
   await page.waitForFunction(() => Math.abs(document.querySelector(".sidebar.is-open")!.getBoundingClientRect().x) < 1);
   await page.screenshot({ path: join(evidence, "mobile-light.png") });
-  await page.getByRole("button", { name: "Add PC", exact: true }).click();
+  await page.locator(".sidebar-more").click();
+  await page.getByRole("menuitem", { name: "Add PC", exact: true }).click();
   await page.screenshot({ path: join(evidence, "mobile-add-pc-light.png") });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
   await page.getByRole("button", { name: "Close PC setup" }).click();
