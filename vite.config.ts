@@ -41,6 +41,5 @@ export default defineConfig({
     { find: /^common\//, replacement: `${xtermSource}/common/` },
     { find: "@shared", replacement: new URL("./shared", import.meta.url).pathname },
     { find: /^@\//, replacement: `${new URL("./src", import.meta.url).pathname}/` },
-    { find: /^@\//, replacement: `${new URL("./src", import.meta.url).pathname}/` },
   ] },
 });

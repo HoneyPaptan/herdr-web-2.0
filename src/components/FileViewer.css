@@ -92,7 +92,7 @@
   margin: 0;
   padding: var(--space-3);
   overflow: auto;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-panel);
   color: var(--text);

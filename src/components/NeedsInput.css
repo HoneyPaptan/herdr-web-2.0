@@ -1,6 +1,6 @@
 .needs-input {
   padding: var(--space-2) var(--space-3);
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
 }
 
 .needs-input-heading {

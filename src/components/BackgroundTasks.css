@@ -103,7 +103,7 @@
 
 .bg-task-list + .bg-ended-toggle {
   margin-top: var(--space-1);
-  border-top: var(--hairline) solid var(--border);
+  border-top: var(--hairline-w) solid var(--border);
 }
 
 .bg-ended-toggle svg {
@@ -202,7 +202,7 @@
   max-width: 100%;
   padding: 0 var(--space-2);
   min-height: var(--chip-h);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-pill);
   color: var(--text-dim);
   font-size: var(--fs-xs);

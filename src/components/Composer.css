@@ -73,7 +73,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-inline: var(--space-1);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-sm);
 }
 
@@ -168,7 +168,7 @@
     "left text right";
   align-items: end;
   background: var(--bg-elevated);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
   transition:
@@ -179,13 +179,13 @@
 /* focus is the surface's: the accent border on the rounded box, not a rectangle on the
    textarea inside it (the global :focus-visible ring is suppressed below) */
 .composer-surface:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-card), 0 0 0 var(--hairline) var(--accent-tint);
+  border-color: var(--highlight);
+  box-shadow: var(--shadow-card), 0 0 0 var(--hairline-w) var(--highlight-tint);
 }
 
 .composer-surface.is-dragging {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 var(--hairline) var(--accent);
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 var(--hairline-w) var(--highlight);
 }
 
 /* the resize grip: a short bar on the box's top edge. Its hit area rises from the border into
@@ -220,7 +220,7 @@
 .composer-resize:hover::before,
 .composer-resize:active::before,
 .composer-resize:focus-visible::before {
-  background: var(--accent);
+  background: var(--highlight);
 }
 
 .composer-resize:focus-visible {
@@ -302,7 +302,7 @@
   width: var(--control-h);
   height: var(--control-h);
   padding: 0;
-  border: var(--hairline) solid transparent;
+  border: var(--hairline-w) solid transparent;
   border-radius: var(--radius-pill);
   color: var(--primary-text);
 }
@@ -333,7 +333,7 @@
   min-height: var(--control-h);
   padding: 0 var(--space-2);
   background: var(--primary-tint);
-  border: var(--hairline) solid var(--primary);
+  border: var(--hairline-w) solid var(--primary);
   border-radius: var(--radius-pill);
   color: var(--text-strong);
   font: inherit;
@@ -430,7 +430,7 @@
   width: calc(var(--control-h) * 2);
   height: calc(var(--control-h) * 2);
   overflow: visible;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
 }
@@ -445,7 +445,7 @@
 .composer-attachment-state {
   position: absolute;
   inset: auto var(--space-1) var(--space-1);
-  padding: var(--hairline) var(--space-1);
+  padding: var(--hairline-w) var(--space-1);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--bg-panel);
@@ -472,7 +472,7 @@
   height: var(--chip-h);
   padding: 0;
   background: var(--bg-panel);
-  border: var(--hairline) solid var(--border-strong);
+  border: var(--hairline-w) solid var(--border-strong);
   border-radius: var(--radius-pill);
   color: var(--text-strong);
 }
@@ -562,14 +562,14 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
-  border-top: var(--hairline) solid var(--border);
-  background: var(--accent-tint);
+  border-top: var(--hairline-w) solid var(--border);
+  background: var(--highlight-tint);
 }
 
 .terminal-stack.is-chat .composer-queue {
   width: min(100%, var(--content-w));
   margin: 0 auto;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
 }
 
@@ -584,7 +584,7 @@
   min-height: 2lh;
   padding: var(--space-1) var(--space-2);
   resize: none;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-panel);
   color: var(--text-strong);
@@ -593,7 +593,7 @@
 }
 
 .composer-queue-text:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--highlight);
   outline: none;
 }
 
@@ -613,7 +613,7 @@
 }
 
 .composer-queue-send {
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   background: var(--bg-elevated);
   color: var(--text);
 }
@@ -673,7 +673,7 @@
   min-height: var(--control-h);
   padding: 0 var(--space-3);
   overflow: hidden;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: 999px;
   background: var(--bg-elevated);
   color: var(--text);
@@ -685,7 +685,7 @@
 }
 
 .composer-quick-reply:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--highlight);
 }
 
 .composer-quick-reply:disabled {
@@ -716,7 +716,7 @@
 .composer-queue-heading { display: grid; gap: var(--space-1); font-size: var(--fs-sm); }
 .composer-queue-list { margin: 0; padding: 0; list-style: none; }
 .composer-queue-item { display: grid; gap: var(--space-1); padding: var(--space-2) 0; }
-.composer-queue-item + .composer-queue-item { border-top: var(--hairline) solid var(--border); }
+.composer-queue-item + .composer-queue-item { border-top: var(--hairline-w) solid var(--border); }
 .composer-queue-error { margin: 0; color: var(--text); font-size: var(--fs-xs); }
 
 /* A command the agent runs but the chat cannot finish. Advice, not a failure: it reads quieter than

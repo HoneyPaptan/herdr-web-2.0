@@ -22,7 +22,7 @@
 }
 
 .phone-panel a {
-  color: var(--accent);
+  color: var(--highlight);
 }
 
 .phone-command {
@@ -31,8 +31,8 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
   background: var(--bg-input);
-  border: var(--hairline) solid var(--border);
-  border-left: var(--rail-w) solid var(--accent);
+  border: var(--hairline-w) solid var(--border);
+  border-left: var(--rail-w) solid var(--highlight);
   border-radius: var(--radius-md);
 }
 

@@ -13,7 +13,7 @@
   gap: var(--space-1);
   height: calc(var(--keybar-h) + env(safe-area-inset-bottom, 0px));
   padding: 0 0 env(safe-area-inset-bottom, 0px);
-  border-top: var(--hairline) solid var(--border);
+  border-top: var(--hairline-w) solid var(--border);
   background: var(--bg-panel);
   overflow-x: auto;
   overflow-y: hidden;
@@ -34,7 +34,7 @@
   height: var(--touch-target);
   padding: 0 var(--space-1);
   background: transparent;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
   font-family: var(--font-mono);
@@ -65,7 +65,7 @@
 .key:active,
 .key.is-armed {
   background: var(--bg-elevated);
-  border-color: var(--accent);
+  border-color: var(--highlight);
   color: var(--text-strong);
 }
 

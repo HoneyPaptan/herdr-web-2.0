@@ -7,6 +7,7 @@ import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { SHORTCUTS, formatKeys, shortcutKeys, shortcutConflict } from "../lib/shortcuts.ts";
 import { CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, TERMINAL_FONT_MAX, TERMINAL_FONT_MIN, TERMINAL_WHEEL_SPEED_MAX, TERMINAL_WHEEL_SPEED_MIN, useSettings, forgetPaneViews } from "../lib/settings.ts";
+import { THEMES } from "../lib/theme.ts";
 import { LANGUAGE_NAMES, LANGUAGE_SETTINGS, useT } from "../lib/i18n.ts";
 import { FONT_FAMILY_MAX_CHARS, sanitizeFontFamily } from "../lib/fontFamily.ts";
 import type { UpdatesModel } from "../lib/updates.ts";
@@ -231,11 +232,11 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
               </div>
             </div>
             <div className="settings-row">
-              <div><span className="settings-label">{t("Colors")}</span><span className="settings-description">{t("herdr's amber, a dark report, or neutral charcoal")}</span></div>
+              <div><span className="settings-label">{t("Colors")}</span><span className="settings-description">{t("One palette for the app and the terminal")}</span></div>
               <div className="segmented" aria-label={t("Colors")}>
-                {(["amber", "report", "charcoal"] as const).map((palette) => (
-                  <button key={palette} type="button" aria-pressed={settings.palette === palette} onClick={() => update({ palette })}>
-                    {t(palette === "report" ? "Dark report" : palette === "amber" ? "Amber" : "Charcoal")}
+                {THEMES.map((theme) => (
+                  <button key={theme.id} type="button" aria-pressed={settings.palette === theme.id} onClick={() => update({ palette: theme.id })}>
+                    {theme.label}
                   </button>
                 ))}
               </div>

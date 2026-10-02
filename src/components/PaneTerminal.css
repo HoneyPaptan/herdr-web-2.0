@@ -137,7 +137,7 @@
   gap: var(--space-1);
   min-height: var(--chip-h);
   padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--bg-elevated);
   font-size: var(--fs-xs);
@@ -152,9 +152,9 @@
 
 /* not a fault: a lens herdr does not offer on this PC yet */
 .terminal-banner-soon {
-  border-color: var(--accent);
+  border-color: var(--highlight);
   color: var(--text);
-  background: linear-gradient(var(--accent-tint), var(--accent-tint)) var(--bg-elevated);
+  background: linear-gradient(var(--highlight-tint), var(--highlight-tint)) var(--bg-elevated);
 }
 
 .terminal-banner-output-error {
@@ -168,9 +168,9 @@
 /* view-only state: the same pill anatomy as the banners, accent-tint layered OVER the
    opaque elevated base - a bare tint would let live pty glyphs bleed through */
 .terminal-banner-observe {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: linear-gradient(var(--accent-tint), var(--accent-tint)) var(--bg-elevated);
+  border-color: var(--highlight);
+  color: var(--highlight);
+  background: linear-gradient(var(--highlight-tint), var(--highlight-tint)) var(--bg-elevated);
 }
 
 /* the held-input review banner: wider than a pill because it carries text + actions,
@@ -217,7 +217,7 @@
 .terminal-banner-draft .draft-actions button {
   height: var(--control-h);
   padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-hover);
   font-size: var(--fs-xs);
@@ -230,7 +230,7 @@
 }
 
 .terminal-banner-draft .draft-actions button:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--highlight);
 }
 
 .terminal-banner-draft .draft-actions button:active {
@@ -243,8 +243,8 @@
 }
 
 .terminal-banner-draft .draft-actions button:focus-visible {
-  outline: var(--ring);
-  outline-offset: var(--ring-offset);
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* phones: banners wrap instead of overflowing - a wrapping box stops being a chip, so it

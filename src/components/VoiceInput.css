@@ -13,7 +13,7 @@
   position: absolute;
   inset: 0;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--highlight);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease-out);
@@ -32,7 +32,7 @@
   width: var(--control-h);
   height: var(--control-h);
   padding: 0;
-  border: var(--hairline) solid transparent;
+  border: var(--hairline-w) solid transparent;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-dim);
@@ -55,8 +55,8 @@
 }
 
 .voice-mic[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--highlight);
+  border-color: var(--highlight);
   color: var(--bg);
 }
 
@@ -78,7 +78,7 @@
   max-width: calc(100% - var(--space-4));
   height: calc(var(--control-h) + var(--space-1));
   padding: 0 var(--space-1);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-pop);
@@ -138,7 +138,7 @@
 }
 
 .voice-done {
-  background: var(--accent);
+  background: var(--highlight);
   color: var(--bg);
 }
 
@@ -159,7 +159,7 @@
   width: var(--dot-size);
   height: var(--dot-size);
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--highlight);
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
@@ -202,7 +202,7 @@
   width: 3px;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--highlight);
   transform-origin: center;
   transform: scaleY(0.12);
   will-change: transform;
@@ -222,14 +222,14 @@
   height: 4px;
   overflow: hidden;
   border-radius: var(--radius-pill);
-  background: var(--accent-tint);
+  background: var(--highlight-tint);
 }
 
 .voice-meter > span {
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--accent);
+  background: var(--highlight);
   transform-origin: left center;
   transform: scaleX(0);
 }
@@ -245,7 +245,7 @@
 }
 
 .voice-timer.is-ending {
-  color: var(--accent);
+  color: var(--highlight);
   font-weight: 600;
 }
 

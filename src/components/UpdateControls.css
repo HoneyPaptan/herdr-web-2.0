@@ -16,6 +16,6 @@
   padding: var(--space-2) var(--space-4);
   color: var(--text-strong);
   background: var(--bg-elevated);
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
   font-size: var(--fs-xs);
 }

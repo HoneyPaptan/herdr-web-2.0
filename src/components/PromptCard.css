@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  border: var(--hairline) solid var(--status-blocked);
+  border: var(--hairline-w) solid var(--status-blocked);
   border-radius: var(--radius-xl);
   background: var(--bg-panel);
   box-shadow: var(--shadow-pop);
@@ -50,7 +50,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: 2px var(--space-2) 2px 2px;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-pill);
   color: var(--text-dim);
   font-size: var(--fs-xs);
@@ -91,12 +91,12 @@
 }
 
 .prompt-card-step.is-answered .prompt-card-step-mark {
-  color: var(--accent);
+  color: var(--highlight);
 }
 
 .prompt-card-step.is-current {
-  border-color: var(--accent);
-  background: var(--accent-tint);
+  border-color: var(--highlight);
+  background: var(--highlight-tint);
   color: var(--text-strong);
   font-weight: var(--fw-medium);
 }
@@ -126,7 +126,7 @@
   margin: 0;
   padding: var(--space-2) var(--space-3);
   overflow: auto;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
@@ -154,7 +154,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--bg-elevated);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-strong);
   font-size: var(--fs-sm);
@@ -174,7 +174,7 @@
 }
 
 .prompt-card-option:hover .prompt-card-number {
-  color: var(--accent);
+  color: var(--highlight);
 }
 
 /* while an answer is on its way every option waits, the checkbox rows included */
@@ -191,8 +191,8 @@
 /* a picked option: a checked box, or a typed pick of an approval's option that waits for Confirm */
 .prompt-card-option.is-checked,
 .prompt-card-option.is-typed {
-  background: var(--accent-tint);
-  border-color: var(--accent);
+  background: var(--highlight-tint);
+  border-color: var(--highlight);
 }
 
 /* the number the agent's menu shows: typing it in the composer picks the option too */
@@ -206,7 +206,7 @@
 
 .prompt-card-option.is-checked .prompt-card-number,
 .prompt-card-option.is-typed .prompt-card-number {
-  color: var(--accent);
+  color: var(--highlight);
 }
 
 .prompt-card-option input {
@@ -243,8 +243,8 @@
   display: inline-block;
   padding: 1px var(--space-1);
   border-radius: var(--radius-sm);
-  background: var(--accent-tint);
-  color: var(--accent);
+  background: var(--highlight-tint);
+  color: var(--highlight);
   font-size: var(--fs-2xs);
   font-weight: var(--fw-semibold);
   /* no taller than the label's line, so the number beside it stays level */
@@ -257,7 +257,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: var(--hairline) solid var(--accent);
+  border: var(--hairline-w) solid var(--highlight);
   border-radius: var(--radius-md);
   color: var(--text-strong);
   font-size: var(--fs-sm);

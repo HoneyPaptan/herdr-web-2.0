@@ -9,7 +9,7 @@
 .machine-group {
   --machine-indent: calc(var(--space-3) + 16px + var(--space-2) + 16px + var(--space-2));
   padding-bottom: var(--space-2);
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
 }
 
 .machine-header {
@@ -118,7 +118,7 @@
   margin: 0 var(--space-3) var(--space-2);
   padding: var(--space-3);
   background: var(--bg-elevated);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
 }
 
@@ -140,7 +140,7 @@
   width: min(560px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
   padding: 0;
-  border: var(--hairline) solid var(--border-strong);
+  border: var(--hairline-w) solid var(--border-strong);
   color: var(--text);
 }
 
@@ -185,7 +185,7 @@
   padding: var(--space-2);
   overflow: auto;
   background: var(--bg-input);
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text);
   font-family: var(--font-mono);
@@ -195,7 +195,7 @@
 }
 
 .machine-ssh-output a {
-  color: var(--accent);
+  color: var(--highlight);
   text-decoration: underline;
   text-underline-offset: var(--space-1);
 }
@@ -237,7 +237,7 @@
   gap: var(--space-2);
   margin: 0 var(--space-3) var(--space-2) var(--machine-indent);
   padding: var(--space-2) var(--space-3);
-  border: var(--hairline) solid var(--status-blocked);
+  border: var(--hairline-w) solid var(--status-blocked);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   font-size: var(--fs-xs);

@@ -96,7 +96,7 @@
   inset: var(--space-3) var(--space-1);
   content: "";
   background: var(--bg-elevated);
-  border: var(--hairline) solid var(--border-strong);
+  border: var(--hairline-w) solid var(--border-strong);
   border-radius: var(--radius-pill);
   transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
@@ -130,7 +130,7 @@
 .settings-shortcuts th,
 .settings-shortcuts td {
   padding: var(--space-2) 0;
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
   font-size: var(--fs-sm);
 }
 
@@ -152,7 +152,7 @@
 }
 
 .settings-about a:not(.btn) {
-  color: var(--accent);
+  color: var(--highlight);
   font-size: var(--fs-sm);
   overflow-wrap: anywhere;
 }
@@ -229,7 +229,7 @@
 /* Voice input: one card per concern (mic, key, tidying, usage), headed like the usage accounts card */
 .voice-group {
   overflow: hidden;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
 }
 
@@ -240,7 +240,7 @@
   margin: 0;
   padding: 0 var(--space-3);
   background: var(--bg-elevated);
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
   color: var(--text-dim);
   font-size: var(--fs-2xs);
   font-weight: var(--fw-semibold);
@@ -259,7 +259,7 @@
 .usage-accounts {
   margin-top: var(--space-2);
   overflow: hidden;
-  border: var(--hairline) solid var(--border);
+  border: var(--hairline-w) solid var(--border);
   border-radius: var(--radius-md);
 }
 
@@ -271,7 +271,7 @@
   min-height: 30px;
   padding: 0 var(--space-2) 0 var(--space-3);
   background: var(--bg-elevated);
-  border-bottom: var(--hairline) solid var(--border);
+  border-bottom: var(--hairline-w) solid var(--border);
   color: var(--text-dim);
   font-size: var(--fs-2xs);
   font-weight: var(--fw-semibold);
@@ -284,7 +284,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  color: var(--accent);
+  color: var(--highlight);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   letter-spacing: normal;
@@ -307,7 +307,7 @@
 }
 
 .usage-accounts-row + .usage-accounts-row {
-  border-top: var(--hairline) solid var(--border);
+  border-top: var(--hairline-w) solid var(--border);
 }
 
 .usage-accounts-name {

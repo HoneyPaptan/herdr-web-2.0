@@ -26,7 +26,8 @@ import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
-import { useSettings, terminalTheme, type Palette, type ResolvedTheme } from "../lib/settings.ts";
+import { useSettings, type Palette, type ResolvedTheme } from "../lib/settings.ts";
+import { terminalTheme } from "../lib/theme.ts";
 import { loadFontStack, TERMINAL_FONT_STACK, terminalFontStack } from "../lib/fontFamily.ts";
 import { useT } from "../lib/i18n.ts";
 import { isAppShortcut } from "../lib/shortcuts.ts";
@@ -64,7 +65,6 @@ export interface PaneTerminalProps {
   terminalGpu: boolean;
   /** the resolved UI theme: the xterm theme object mirrors it */
   theme: ResolvedTheme;
-  /** the chrome palette (settings.ts): the terminal cursor and selection follow it */
   palette: Palette;
   /** The connection's desired role; changes are sent to the server, acks come back via onRoleAck. */
   role?: ClientRole;
@@ -276,7 +276,7 @@ export function PaneTerminal({
       fontSize: terminalFontSize,
       // a chosen family follows in the font effect below, once its faces have loaded
       fontFamily: TERMINAL_FONT_STACK,
-      theme: terminalTheme(theme, palette),
+      theme: terminalTheme(palette, theme),
       linkHandler: {
         activate: (event, uri) => {
           if (!linkPressed(event)) return;
@@ -965,10 +965,9 @@ export function PaneTerminal({
     return term ? startTerminalRenderer(term, terminalGpu) : undefined;
   }, [terminalGpu]);
 
-  // the theme follows the settings without a remount
   useEffect(() => {
     const term = termRef.current;
-    if (term) term.options.theme = terminalTheme(theme, palette);
+    if (term) term.options.theme = terminalTheme(palette, theme);
   }, [theme, palette]);
 
   // the font follows too, and a font change moves the grid. xterm measures the cell (and the DOM
