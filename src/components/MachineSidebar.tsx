@@ -14,7 +14,6 @@ import { useT } from "../lib/i18n.ts";
 
 declare const __APP_VERSION__: string;
 
-/** The PC header's state word; "connected" is the quiet default and shows as a dot alone. */
 export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   connecting: "Connecting…",
   connected: "Connected",
@@ -28,7 +27,6 @@ export function MachineSidebar(props: Props) {
   const t = useT();
   const { canInstall, installed, install, help } = useInstallPrompt();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
-  // the new session opens on the selected PC, the same one Mod+Shift+N uses
   const target = props.machines.find((machine) => machine.id === props.selectedMachineId);
   return <div className="sidebar-shell">
     <div className="sidebar-topbar sidebar-topbar-row">
@@ -42,7 +40,6 @@ export function MachineSidebar(props: Props) {
       {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
     </div>
     <footer className="sidebar-footer">
-      {/* browsers without an install prompt (iOS, plain HTTP) get the steps instead */}
       {!installed && <button className="btn btn-ghost sidebar-footer-action" aria-expanded={canInstall ? undefined : installHelpOpen} onClick={() => { if (canInstall) void install(); else setInstallHelpOpen(!installHelpOpen); }}><Download aria-hidden="true" />{t("Install app")}</button>}
       {!installed && !canInstall && installHelpOpen && <p className="sidebar-install-help" role="status">{help}</p>}
       <div className="sidebar-footer-row">
@@ -80,14 +77,12 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
         {collapsed ? <ChevronRight className="machine-caret" aria-hidden="true" /> : <ChevronDown className="machine-caret" aria-hidden="true" />}
         <Monitor className="machine-icon" aria-hidden="true" />
         <span className="machine-name">{machine.name}</span>
-        {/* the computer this app's server runs on; on a phone "this PC" read as the phone */}
         {machine.kind === "local" && <span className="machine-kind" title={t("The computer this app runs on")}>{t("Host")}</span>}
         <span className={`machine-dot is-${machine.state}`} title={t(STATE_WORD[machine.state])} aria-hidden="true" />
       </button>
       <button className="sidebar-row-action" disabled={!online} aria-label={t("New session on {name}", { name: machine.name })} title={t("New session")} onClick={() => props.onNew(machine.id)}><Plus aria-hidden="true" /></button>
       {machine.kind === "ssh" && <button className="sidebar-row-action" aria-label={t("Manage {name}", { name: machine.name })} title={t("Manage PC")} aria-expanded={editing} onClick={() => { setEditing(!editing); setConfirmDelete(false); }}><SlidersHorizontal aria-hidden="true" /></button>}
     </header>
-    {/* connected is the norm and says nothing new; every other state is spelled out */}
     {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p className={`machine-state is-${machine.state}${online ? " visually-hidden" : ""}`} role="status" title={machine.error ?? undefined}>
       <span className="machine-state-word">{STATE_WORD[machine.state]}</span>
       {machine.error && <span className="machine-state-detail">{machine.error}</span>}
@@ -99,12 +94,11 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
     </div>}
     {error && <p className="machine-error" role="alert">{error}</p>}
     {!collapsed && <div className={online ? "" : "machine-offline"} inert={!online}>
-      {!online && !machine.snapshot ? <p className="tree-state machine-empty" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar embedded snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} actions={actions} version={null} /></MachineContext.Provider>}
+      {!online && !machine.snapshot ? <p className="tree-state machine-empty" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} actions={actions} /></MachineContext.Provider>}
     </div>}
   </section>;
 }
 
-/** Seconds since the stage began, ticking on this device: install and restart have no bytes to show. */
 function useStageSeconds(update: MachineUpdate): number {
   const key = `${update.job_id}:${update.progress?.stage ?? ""}`;
   const [start, setStart] = useState(() => ({ key, at: Date.now() - (update.progress?.elapsed_ms ?? 0) }));
@@ -114,7 +108,6 @@ function useStageSeconds(update: MachineUpdate): number {
   return Math.max(0, Math.round((now - start.at) / 1000));
 }
 
-/** A bridge install in words and a bar: the step, the bytes, and roughly how long is left. */
 export function BridgeUpdateProgress({ update }: { update: MachineUpdate }) {
   const view = describeProgress(update.progress);
   const seconds = useStageSeconds(update);
@@ -128,7 +121,6 @@ export function BridgeUpdateProgress({ update }: { update: MachineUpdate }) {
   </div>;
 }
 
-/** Retrying can't reconnect this PC: say what the user has to do, with the button that does it. */
 function MachineActionNotice({ machine, onSetup }: { machine: Machine; onSetup(machine: Machine, update?: boolean): void }) {
   const t = useT();
   const [error, setError] = useState<string | null>(null);
@@ -155,14 +147,12 @@ function MachineActionNotice({ machine, onSetup }: { machine: Machine; onSetup(m
     </p>
     {update ? <div className="machine-action-buttons">
       <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run(() => machineRequest(`/${encodeURIComponent(machine.id)}/update-bridge`, "POST"))}>{t("Update bridge")}</button>
-      {/* a PC that needs a password or a new host key goes through its dialog */}
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => onSetup(machine, true)}>{t("Sign in and update…")}</button>
     </div> : <button type="button" className="btn btn-primary" onClick={() => onSetup(machine, false)}>{t("Set up…")}</button>}
     {error && <p className="machine-error" role="alert">{error}</p>}
   </div>;
 }
 
-/** The app-wide line for PCs that wait on the user, so a closed drawer on a phone still says so. */
 export function MachineActionBanner({ machines, onSetup }: { machines: Machine[]; onSetup(machine: Machine, update?: boolean): void }) {
   const t = useT();
   const running = machines.find((machine) => machine.updating);

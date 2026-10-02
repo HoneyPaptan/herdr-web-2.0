@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, Download, Folder, GripVertical, Layers, Pencil, Plus, Settings, Terminal, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, GripVertical, Layers, Pencil, Terminal, X } from "lucide-react";
 
 import "./Sidebar.css";
 
@@ -7,10 +7,8 @@ import type { AgentStatus, PaneInfo, SessionSnapshot, WorkspaceInfo, HerdrPane }
 import { paneTitle } from "../../shared/notify-policy.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import type { AppActions } from "../lib/actions.ts";
-import { useInstallPrompt } from "../lib/install.ts";
 import { knownStatus, STATUS_WORD } from "../lib/status.ts";
 import { AgentMark } from "./AgentMark.tsx";
-import { UsageMeters } from "./UsageMeters.tsx";
 import { folderName, placeLine, shortPathTitle } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
 import { groupDirectories } from "../lib/directoryGroups.ts";
@@ -19,7 +17,6 @@ import { useSettings, type SidebarGrouping } from "../lib/settings.ts";
 const CLOSE_ARM_MS = 3000;
 const ERROR_NOTE_MS = 5000;
 
-/** Folder folds belong to a PC and full path, not an individual workspace. */
 const collapsedKey = (machineId: string, groupKey: string) => {
   const workspace = groupKey.startsWith("workspace:");
   return `herdr-web-ui:${workspace ? "workspace" : "directory"}-collapsed:${machineId}:${groupKey.slice(workspace ? "workspace:".length : "folder:".length)}`;
@@ -28,13 +25,11 @@ function storedCollapsed(machineId: string, directoryKeys: string[]): Set<string
   const collapsed = new Set<string>();
   try {
     for (const id of directoryKeys) if (localStorage.getItem(collapsedKey(machineId, id)) === "1") collapsed.add(id);
-  } catch { /* storage denied: nothing is folded */ }
+  } catch { return collapsed; }
   return collapsed;
 }
 
-/** shell prompt titles: `user@host:` is chrome, the path after it is the information */
 const SHELL_PREFIX = /^[^:@\s]+@[^:@\s]+:/;
-/** Herdr's agent glyph and spinner are already represented by the row mark and badge. */
 const AGENT_CHROME = /^\u03c0\s*[^\p{L}\p{N}\s]?\s*/u;
 
 function stripPaneChrome(title: string, agent: string | null | undefined): string {
@@ -44,15 +39,10 @@ function stripPaneChrome(title: string, agent: string | null | undefined): strin
 
 export { paneTitle };
 
-/**
- * The title a row or the header shows: the user's label, else the live title minus its chrome,
- * a working directory written out shortened to its last folder (lib/paneName.ts).
- */
 export function displayPaneTitle(pane: PaneInfo): string {
   return pane.label?.trim() || shortPathTitle(stripPaneChrome(paneTitle(pane), pane.agent)) || pane.pane_id;
 }
 
-/** herdr could not bring this pane back after a restart (0.9.3+ `restore_error`): its reason, on hover. */
 export function RestoreErrorBadge({ reason }: { reason: string }) {
   const t = useT();
   return <span className="badge badge-restore-error" title={reason}>{t("NOT RESTORED")}</span>;
@@ -68,11 +58,6 @@ export function StatusBadge({ status }: { status?: AgentStatus }) {
   );
 }
 
-/**
- * Background tasks an agent started that still run (OmO's `task` children): the main turn can be
- * done while they work, and they wake the session by themselves. A count beside the state word,
- * not a state of its own: DONE stays the moment the agent answered.
- */
 export function BackgroundBadge({ count }: { count?: number }) {
   const t = useT();
   if (!count || count <= 0) return null;
@@ -97,11 +82,9 @@ export interface SidebarProps {
   snapshot: SessionSnapshot | null;
   selectedPaneId: string | null;
   actions: AppActions;
-  version: string | null;
-  embedded?: boolean;
 }
 
-export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded = false }: SidebarProps) {
+export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
   const t = useT();
   const { settings } = useSettings();
   const byFolder = settings.sidebarGrouping === "directory";
@@ -118,7 +101,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => storedCollapsed(machineId, snapshot ? [...snapshot.workspaces.map((workspace) => `workspace:${workspace.workspace_id}`), ...groupDirectories(snapshot.workspaces, snapshot.panes).map((group) => `folder:${group.key}`)] : []));
   const armTimer = useRef<number | null>(null);
   const unfoldedFor = useRef<Partial<Record<SidebarGrouping, string>>>({});
-  const { canInstall, install } = useInstallPrompt();
 
   const setGroupCollapsed = (groupKey: string, collapsed: boolean): void => {
     setCollapsedGroups((current) => {
@@ -150,7 +132,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
     }
     const serverOrder = snapshot.workspaces.map((workspace) => workspace.workspace_id);
     setWorkspaceOrder((current) => current.join("\u0000") === serverOrder.join("\u0000") ? current : serverOrder);
-    // New folders bring their stored fold state after reconnecting or creating a session.
     setCollapsedGroups((current) => {
       const keys = [...serverOrder.map((id) => `workspace:${id}`), ...groupDirectories(snapshot.workspaces, snapshot.panes).map((group) => `folder:${group.key}`)];
       const stored = storedCollapsed(machineId, keys.filter((id) => !current.has(id)));
@@ -158,7 +139,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
     });
   }, [snapshot, machineId]);
 
-  // Reveal a newly selected pane once per mode; toggling back preserves its deliberate fold.
   useEffect(() => {
     if (!selectedPaneId || !snapshot) return;
     const pane = snapshot.panes.find((pane) => pane.pane_id === selectedPaneId);
@@ -218,8 +198,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
     });
   };
 
-  // By folder, one workspace can show under several folders: only the copy that was clicked edits.
-  // Two mounted inputs would take the focus from each other, and the blur closes both.
   const beginWorkspaceRename = (workspace: WorkspaceInfo, scope: string): void => {
     setEditingWorkspaceId(`${scope}\u0000${workspace.workspace_id}`);
     setWorkspaceLabel(workspace.label);
@@ -289,8 +267,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
 
   const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "") => {
     if (visiblePanes.length === 0) return null;
-    // Only folder mode merges a single-pane workspace into its row. Count the
-    // whole workspace so one split across folders keeps its rename heading.
     const merged = byFolder && (workspacePaneCounts.get(workspace.workspace_id) ?? visiblePanes.length) === 1;
     const groupKey = `workspace:${workspace.workspace_id}`;
     const collapsed = !byFolder && collapsedGroups.has(groupKey);
@@ -420,14 +396,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
   };
 
   return (
-    <div className={embedded ? "machine-workspaces" : "sidebar-shell"}>
-      {!embedded && <div className="sidebar-topbar">
-        <button type="button" className="btn sidebar-new-session" onClick={actions.openNewSession}>
-          <Plus aria-hidden="true" />
-          {t("New session")}
-        </button>
-      </div>}
-
+    <div className="machine-workspaces">
       <nav className="sidebar-list" aria-label={t("Herdr workspaces")}>
         {!snapshot && <p className="tree-state" role="status">{t("Loading workspaces…")}</p>}
         {snapshot && snapshot.workspaces.length === 0 && (
@@ -453,25 +422,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions, version, embedded =
         )}
       </nav>
 
-      {!embedded && <footer className="sidebar-footer">
-        {canInstall && (
-          <button type="button" className="btn btn-ghost sidebar-footer-action" onClick={() => void install().catch((reason: unknown) => noteError(reason instanceof Error ? reason.message : String(reason)))}>
-            <Download aria-hidden="true" />
-            {t("Install app")}
-          </button>
-        )}
-        <div className="sidebar-footer-row">
-          <button type="button" className="btn btn-ghost sidebar-footer-action" onClick={actions.openSettings}>
-            <Settings aria-hidden="true" />
-            {t("Settings")}
-          </button>
-          <UsageMeters />
-        </div>
-        <div className="sidebar-brandline">
-          <span className="sidebar-app-name">herdr web ui</span>
-          <span className="pill">herdr {version ?? "offline"}</span>
-        </div>
-      </footer>}
     </div>
   );
 }
