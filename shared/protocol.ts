@@ -545,3 +545,21 @@ export type ServerMessage =
 /** herdr's default socket, under XDG_CONFIG_HOME when set, as herdr itself resolves it. */
 export const HERDR_SOCKET_PATH = `${process.env["XDG_CONFIG_HOME"] || `${process.env["HOME"] ?? ""}/.config`}/herdr/herdr.sock`;
 export const DEFAULT_PORT = 7317;
+
+export interface HostFontFace {
+  id: string;
+  weight: string;
+  style: "normal" | "italic";
+  format: "truetype" | "opentype";
+  postscript: string;
+}
+
+export interface HostFontFamily {
+  family: string;
+  mono: boolean;
+  faces: HostFontFace[];
+}
+
+export interface HostFontsReport {
+  families: HostFontFamily[];
+}
