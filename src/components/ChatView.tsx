@@ -285,7 +285,7 @@ function WorkRow({ paneId, part }: { paneId: string; part: ToolPartType }) {
   const summary = todoCallSummary(part) ?? part.summary;
   const output = isTodoTool(part.name) && parseTodoAnswer(part.output) !== null ? "" : whole.text ?? part.output;
   return <div className={cn("work-row group/tool flex flex-col gap-1.5", part.error && "is-error")}>
-    <button type="button" className="work-row-head flex w-full items-center gap-2 text-left text-chat pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <button type="button" className="work-row-head cursor-pointer border-0 bg-transparent p-0 [font:inherit] flex w-full items-center gap-2 text-left text-chat pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
       <span className={cn("shrink-0", part.error ? "text-destructive" : "text-foreground/80")}>{part.name}</span>
       {summary.length > 0 && summary !== part.name && <span className="min-w-0 max-w-fit truncate font-mono text-muted-foreground">{summary}</span>}
       {part.error && <span className="shrink-0 text-destructive">{t("failed")}</span>}
@@ -304,7 +304,7 @@ function ThinkingRow({ text }: { text: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   return <div className="work-row work-row-thinking">
-    <button type="button" className="work-row-head group/think flex items-center gap-1.5 text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <button type="button" className="work-row-head cursor-pointer border-0 bg-transparent p-0 [font:inherit] group/think flex items-center gap-1.5 text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
       <span>{t("Thought")}</span>
       <RowChevron open={open} group="think" />
     </button>
@@ -321,7 +321,7 @@ function WorkBlockView({ paneId, parts, duration, live, defaultOpen, showThinkin
   const summary = workSummary(parts);
   const title = live ? t("Working…") : duration !== null ? t("Worked for {duration}", { duration }) : t("Worked");
   return <section className={cn("work-block flex w-full flex-col gap-3", live && "is-live")}>
-    <button type="button" className="work-block-head group/turn flex min-w-0 items-center gap-2 text-left text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <button type="button" className="work-block-head cursor-pointer border-0 bg-transparent p-0 [font:inherit] group/turn flex min-w-0 items-center gap-2 text-left text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
       {live && <Orb state="listening" aria-hidden="true" className="shrink-0" />}
       <span className={cn("work-block-title shrink-0", live && "shimmer-text")}>{title}</span>
       {summary.length > 0 && <span className="work-block-summary min-w-0 truncate text-muted-foreground/60">{summary}</span>}
