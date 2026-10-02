@@ -222,7 +222,7 @@ describe("numbered lists as agents write them", () => {
     const languages = Object.getOwnPropertyDescriptor(navigator, "languages");
     Object.defineProperty(navigator, "languages", { configurable: true, value: ["en"] });
     try {
-      return renderToStaticMarkup(createElement(SettingsProvider, { children: createElement(Markdown, { children: source }) }));
+      return renderToStaticMarkup(createElement(SettingsProvider, { children: createElement(Markdown, { children: source }) })).replace(/ class="[^"]*"/g, "");
     } finally {
       if (languages) Object.defineProperty(navigator, "languages", languages);
       else Reflect.deleteProperty(navigator, "languages");
@@ -263,7 +263,7 @@ describe("numbered lists as agents write them", () => {
     const source = "1. first\n\n   | a | b |\n   |---|---|\n   | 1 | 2 |\n\n1. second\n1. third";
     expect(lists(source)).toEqual([{ start: 1, items: 3 }]);
     const html = render(source);
-    expect(html).toContain('<ol class="markdown-list"><li><span>first</span><div class="markdown-table-wrap"><table>');
+    expect(html).toContain("<ol><li><span>first</span><div><table>");
     expect(html.match(/<ol/g)).toHaveLength(1);
   });
 

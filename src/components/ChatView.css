@@ -17,181 +17,16 @@
   --fs-chat: var(--chat-fs-md);
 }
 
-.markdown-code-copy svg {
-  width: var(--fs-sm);
-  height: var(--fs-sm);
-}
-
-.markdown {
-  width: 100%;
-  font-size: var(--fs-md);
-  line-height: var(--lh-base);
-  overflow-wrap: anywhere;
-}
-
-.markdown > :first-child { margin-top: 0; }
-.markdown > :last-child { margin-bottom: 0; }
-
-.markdown-math-display {
-  display: block;
-  max-width: 100%;
+.md-table-scroll {
   overflow-x: auto;
-  margin-bottom: var(--space-3);
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
-.markdown p,
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4,
-.markdown h5,
-.markdown h6,
-.markdown blockquote,
-.markdown-list {
-  margin: 0 0 var(--space-3);
+.md-table-scroll:hover {
+  scrollbar-color: color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) transparent;
 }
-
-.markdown h1 { font-size: var(--fs-xl); }
-.markdown h2 { font-size: var(--fs-lg); }
-.markdown h3 { font-size: var(--fs-md); }
-/* below h3 the size stops shrinking: the weight, then the dim colour, tell the levels apart */
-.markdown h4,
-.markdown h5,
-.markdown h6 { font-size: var(--fs-md); }
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4,
-.markdown h5 { color: inherit; font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
-.markdown h6 { color: var(--text-dim); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
-
-.markdown-list {
-  padding-left: var(--space-5);
-}
-
-.markdown-list .markdown-list {
-  margin: var(--space-1) 0 0;
-}
-
-/* a table or text below it in a list item: a little air above and below, as between two items */
-.markdown-list .markdown-table-wrap,
-.markdown-list p {
-  margin: var(--space-1) 0;
-}
-
-.markdown blockquote {
-  padding-left: var(--space-3);
-  border-left: var(--rail-w) solid var(--border-strong);
-  color: var(--text-dim);
-}
-
-.markdown :not(pre) > code {
-  padding-inline: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-strong);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-
-.chat-bubble .markdown :not(pre) > code {
-  background: var(--bg-hover);
-}
-
-.markdown a {
-  color: var(--highlight);
-  text-decoration: underline;
-  text-underline-offset: var(--space-1);
-}
-
-.chat-bubble .markdown pre,
-.chat-bubble .markdown-code {
-  background: var(--bg-panel);
-}
-
-.markdown hr {
-  margin: var(--space-4) 0;
-  border: 0;
-  border-top: var(--hairline-w) solid var(--border);
-}
-
-.markdown-code {
-  width: 100%;
-  margin-bottom: var(--space-3);
-  overflow: hidden;
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-panel);
-  color: var(--text);
-}
-
-.markdown-code-header {
-  min-height: var(--control-h);
-  padding-inline: var(--space-3);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: var(--hairline-w) solid var(--border);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-}
-
-/* no height cap: an inner scroll hid the rest of the block on phones */
-.markdown-code pre {
-  margin: 0;
-  padding: var(--space-3);
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-base);
-  white-space: pre;
-}
-
-.markdown-code-more {
-  width: 100%;
-  min-height: var(--control-h);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-top: var(--hairline-w) solid var(--border);
-  background: transparent;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  text-align: left;
-  cursor: pointer;
-}
-
-.markdown-code-more:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.markdown-table-wrap {
-  width: 100%;
-  margin-bottom: var(--space-3);
-  overflow-x: auto;
-}
-
-.markdown table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-sm);
-}
-
-.markdown th,
-.markdown td {
-  padding: var(--space-2);
-  border: var(--hairline-w) solid var(--border);
-  text-align: left;
-}
-
-.markdown th {
-  background: var(--bg-elevated);
-  color: var(--text-strong);
-  font-weight: var(--fw-semibold);
-}
-
 
 .chat-checklist {
   margin: 0;
@@ -213,15 +48,6 @@
 
 .terminal-stack.is-chat .composer {
   background: transparent;
-}
-
-@media (pointer: coarse) {
-  .markdown-code-copy,
-  .markdown-code-more {
-    min-height: var(--touch-target);
-  }
-
-  .markdown-code-copy { width: var(--touch-target); }
 }
 
 .todo-list ul {
@@ -272,50 +98,6 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
-}
-
-/* a file path in an answer: opens the file viewer, reads as the text or code it is */
-.markdown-file {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--highlight);
-  font: inherit;
-  text-align: inherit;
-  text-decoration: underline dotted;
-  text-underline-offset: var(--space-1);
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-
-.markdown-file.is-code {
-  text-decoration: none;
-}
-
-.markdown-code-link {
-  text-decoration: none;
-}
-
-.markdown-code-link code {
-  color: var(--highlight);
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
-}
-
-.markdown-code-link:hover code {
-  text-decoration-style: solid;
-}
-
-.markdown-file.is-code code {
-  color: var(--highlight);
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
-}
-
-.markdown-file:hover,
-.markdown-file:hover code {
-  text-decoration-style: solid;
 }
 
 /* images the user sent: thumbnails above their bubble, opened full size on a tap */

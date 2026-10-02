@@ -5,6 +5,18 @@ import { foldCode, parseMarkdown, type InlineNode, type ListBlock, type Markdown
 import { codeIsFilePath, OpenFileContext, splitFilePaths } from "../lib/filePaths.ts";
 import { fileUriPath } from "../lib/terminalFileLinks.ts";
 import { useT } from "../lib/i18n.ts";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const LINK = "wrap-anywhere font-medium text-primary underline";
+const FILE = "inline cursor-pointer border-0 bg-transparent p-0 text-left text-inherit underline decoration-transparent underline-offset-2 transition-colors [font:inherit] wrap-anywhere hover:decoration-current";
+const INLINE_CODE = "rounded-sm bg-muted px-1 font-mono text-code text-foreground";
+const BLOCK_GAP = "mt-0 mb-3";
+const HEADING: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
+  1: "mt-4 mb-2", 2: "mt-4 mb-2", 3: "mt-3 mb-1.5", 4: "mt-3 mb-1.5", 5: "mt-3 mb-1.5", 6: "mt-3 mb-1.5 text-muted-foreground",
+};
+const NESTED = "[&_li>div]:my-1 [&_li>p]:my-1 [&_ol]:mt-1 [&_ol]:mb-0 [&_ul]:mt-1 [&_ul]:mb-0";
+const CELL = "border border-border px-2 py-1.5 text-left align-top";
 
 type Katex = typeof import("../lib/katex.ts").default;
 
@@ -29,22 +41,19 @@ function MathExpression({ value, displayMode = false }: { value: string; display
   const source = <span>{displayMode ? `\\[${value}\\]` : `\\(${value}\\)`}</span>;
   if (!katex) return source;
   try {
-    // KaTeX escapes text and rejects untrusted commands by default.
     const html = katex.renderToString(value, { displayMode, strict: "ignore" });
-    return <span className={displayMode ? "markdown-math-display" : "markdown-math"} dangerouslySetInnerHTML={{ __html: html }} />;
+    return <span className={displayMode ? cn("markdown-math-display block max-w-full overflow-x-auto", BLOCK_GAP) : "markdown-math"} dangerouslySetInnerHTML={{ __html: html }} />;
   } catch {
     return source;
   }
 }
 
-/** A file path the viewer opens: a button that reads as the text or code it replaced. */
 function FilePath({ path, code, open }: { path: string; code: boolean; open: (path: string) => void }) {
   const t = useT();
-  const label = code ? <code>{path}</code> : path;
-  return <button type="button" className={`markdown-file${code ? " is-code" : ""}`} title={t("Open {path}", { path })} onClick={() => open(path)}>{label}</button>;
+  const label = code ? <code className={INLINE_CODE}>{path}</code> : path;
+  return <button type="button" className={cn("markdown-file", FILE)} aria-label={t("Open {path}", { path })} onClick={() => open(path)}>{label}</button>;
 }
 
-/** `interactive` is false inside a link or file label: nothing clickable nests in another. */
 function Inline({ nodes, interactive = true }: { nodes: InlineNode[]; interactive?: boolean }) {
   const context = useContext(OpenFileContext);
   const open = interactive ? context : null;
@@ -58,21 +67,19 @@ function Inline({ nodes, interactive = true }: { nodes: InlineNode[]; interactiv
       case "code": {
         const file = fileUriPath(node.value);
         if (open !== null && file !== null) return <FilePath key={key} path={file} code open={open} />;
-        // agents often put an address in backticks: it stays code to the eye, and opens
-        if (interactive && /^https?:\/\/\S+$/i.test(node.value)) return <a key={key} className="markdown-code-link" href={node.value} target="_blank" rel="noopener noreferrer"><code>{node.value}</code></a>;
-        return open !== null && codeIsFilePath(node.value) ? <FilePath key={key} path={node.value} code open={open} /> : <code key={key}>{node.value}</code>;
+        if (interactive && /^https?:\/\/\S+$/i.test(node.value)) return <a key={key} className={LINK} href={node.value} target="_blank" rel="noopener noreferrer"><code className={INLINE_CODE}>{node.value}</code></a>;
+        return open !== null && codeIsFilePath(node.value) ? <FilePath key={key} path={node.value} code open={open} /> : <code key={key} className={INLINE_CODE}>{node.value}</code>;
       }
       case "math": return <MathExpression key={key} value={node.value} />;
-      case "strong": return <strong key={key}><Inline nodes={node.children} interactive={interactive} /></strong>;
+      case "strong": return <strong key={key} className="font-semibold"><Inline nodes={node.children} interactive={interactive} /></strong>;
       case "em": return <em key={key}><Inline nodes={node.children} interactive={interactive} /></em>;
       case "del": return <del key={key}><Inline nodes={node.children} interactive={interactive} /></del>;
-      case "link": return <a key={key} href={node.href} target="_blank" rel="noopener noreferrer"><Inline nodes={node.children} interactive={false} /></a>;
-      // the label opens the file; where nothing can open one, the path shows after it, as Codex's terminal does
+      case "link": return <a key={key} className={LINK} href={node.href} target="_blank" rel="noopener noreferrer"><Inline nodes={node.children} interactive={false} /></a>;
       case "file": {
         const label = <Inline nodes={node.children} interactive={false} />;
         return open !== null
-          ? <button key={key} type="button" className="markdown-file" title={t("Open {path}", { path: node.path })} onClick={() => open(node.path)}>{label}</button>
-          : <span key={key}>{label} (<code>{node.path}</code>)</span>;
+          ? <button key={key} type="button" className={cn("markdown-file", FILE)} aria-label={t("Open {path}", { path: node.path })} onClick={() => open(node.path)}>{label}</button>
+          : <span key={key}>{label} (<code className={INLINE_CODE}>{node.path}</code>)</span>;
       }
     }
   })}</>;
@@ -81,7 +88,7 @@ function Inline({ nodes, interactive = true }: { nodes: InlineNode[]; interactiv
 function List({ block }: { block: ListBlock }) {
   const Tag = block.ordered ? "ol" : "ul";
   return (
-    <Tag className="markdown-list" start={block.ordered ? block.start : undefined}>
+    <Tag className={cn("markdown-list pl-5", BLOCK_GAP, block.ordered ? "list-decimal" : "list-disc", NESTED)} start={block.ordered ? block.start : undefined}>
       {block.items.map((item, index) => (
         <li key={index}>
           <Inline nodes={item.content} />
@@ -97,7 +104,6 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const block = useRef<HTMLDivElement>(null);
-  // no inner scroll: a long block folds, with a visible "Show all" row
   const fold = useMemo(() => foldCode(value), [value]);
   const copy = async (): Promise<void> => {
     await navigator.clipboard.writeText(value);
@@ -109,8 +115,6 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
     folding.current = expanded;
     setExpanded(!expanded);
   };
-  // "Show less" sits at the bottom of a long block: after folding, bring the block's top back
-  // into view rather than leave the reader far below it
   useLayoutEffect(() => {
     if (!folding.current) return;
     folding.current = false;
@@ -119,16 +123,13 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
     if (node && view && node.getBoundingClientRect().top < view.getBoundingClientRect().top) node.scrollIntoView({ block: "start" });
   }, [expanded]);
   return (
-    <div className="markdown-code" ref={block}>
-      <div className="markdown-code-header">
-        <span>{language || "text"}</span>
-        <button type="button" className="icon-button markdown-code-copy" onClick={() => void copy()} aria-label={t(copied ? "Code copied" : "Copy code")}>
-          {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-        </button>
-      </div>
-      <pre><code>{fold !== null && !expanded ? fold.head : value}</code></pre>
+    <div className={cn("markdown-code group/code relative w-full overflow-hidden rounded-md border border-border bg-surface-raised", BLOCK_GAP)} ref={block} data-language={language || undefined}>
+      <Button variant="ghost" size="icon-xs" className="markdown-code-copy absolute top-1.5 right-1.5 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/code:opacity-100 focus-visible:opacity-100 pointer-coarse:size-8 pointer-coarse:opacity-100" onClick={() => void copy()} aria-label={t(copied ? "Code copied" : "Copy code")}>
+        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+      </Button>
+      <pre className="m-0 overflow-x-auto px-3 py-2.5 font-mono text-code whitespace-pre"><code>{fold !== null && !expanded ? fold.head : value}</code></pre>
       {fold !== null && (
-        <button type="button" className="markdown-code-more" aria-expanded={expanded} onClick={toggle}>
+        <button type="button" className="markdown-code-more flex min-h-7 w-full cursor-pointer items-center border-0 border-t border-border bg-transparent px-3 text-left font-mono text-tool text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-foreground pointer-coarse:min-h-11" aria-expanded={expanded} onClick={toggle}>
           {expanded ? t("Show less") : t("Show all {n} lines", { n: fold.lines })}
         </button>
       )}
@@ -142,19 +143,19 @@ function Blocks({ blocks }: { blocks: MarkdownBlock[] }) {
     switch (block.type) {
       case "heading": {
         const Tag = `h${block.level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-        return <Tag key={key}><Inline nodes={block.content} /></Tag>;
+        return <Tag key={key} className={cn("text-chat font-semibold", HEADING[block.level])}><Inline nodes={block.content} /></Tag>;
       }
       case "paragraph":
-        return <p key={key}>{block.lines.map((line, lineIndex) => <span key={lineIndex}><Inline nodes={line} />{lineIndex < block.lines.length - 1 && <br />}</span>)}</p>;
+        return <p key={key} className={BLOCK_GAP}>{block.lines.map((line, lineIndex) => <span key={lineIndex}><Inline nodes={line} />{lineIndex < block.lines.length - 1 && <br />}</span>)}</p>;
       case "list": return <List key={key} block={block} />;
-      case "blockquote": return <blockquote key={key}><Blocks blocks={block.blocks} /></blockquote>;
+      case "blockquote": return <blockquote key={key} className={cn("mx-0 border-l-2 border-border pl-3 text-muted-foreground", BLOCK_GAP)}><Blocks blocks={block.blocks} /></blockquote>;
       case "code": return <CodeBlock key={key} language={block.language} value={block.value} />;
       case "math": return <MathExpression key={key} value={block.value} displayMode />;
-      case "hr": return <hr key={key} />;
+      case "hr": return <hr key={key} className="my-4 border-0 border-t border-border" />;
       case "table": return (
-        <div className="markdown-table-wrap" key={key}>
-          <table><thead><tr>{block.header.map((cell, cellIndex) => <th key={cellIndex}><Inline nodes={cell} /></th>)}</tr></thead>
-            <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}><Inline nodes={cell} /></td>)}</tr>)}</tbody>
+        <div className={cn("markdown-table-wrap md-table-scroll w-full", BLOCK_GAP)} key={key}>
+          <table className="w-max min-w-full border-collapse"><thead><tr>{block.header.map((cell, cellIndex) => <th key={cellIndex} className={cn(CELL, "bg-muted font-semibold")}><Inline nodes={cell} /></th>)}</tr></thead>
+            <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex} className={CELL}><Inline nodes={cell} /></td>)}</tr>)}</tbody>
           </table>
         </div>
       );
@@ -164,5 +165,5 @@ function Blocks({ blocks }: { blocks: MarkdownBlock[] }) {
 
 export function Markdown({ children, className }: { children: string; className?: string }) {
   const blocks = useMemo(() => parseMarkdown(children), [children]);
-  return <div className={className === undefined ? "markdown" : `markdown ${className}`}><Blocks blocks={blocks} /></div>;
+  return <div className={cn("markdown w-full text-chat wrap-anywhere [&>:first-child]:mt-0 [&>:last-child]:mb-0", className)}><Blocks blocks={blocks} /></div>;
 }
