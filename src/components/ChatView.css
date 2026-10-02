@@ -200,206 +200,6 @@
   font-weight: var(--fw-semibold);
 }
 
-/* ---------- work block: "Worked for 7s · 1 edit" over one-line rows ---------- */
-
-.work-block {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.work-block-head,
-.work-row-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: var(--control-h);
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-  text-align: left;
-  cursor: pointer;
-}
-
-.work-block-head:hover,
-.work-row-head:hover {
-  background: var(--bg-hover);
-}
-
-.work-row-caret {
-  flex: none;
-  display: inline-flex;
-  width: var(--fs-md);
-  height: var(--fs-md);
-  color: var(--text-dim);
-}
-
-.work-row-caret svg {
-  width: 100%;
-  height: 100%;
-}
-
-.work-block-title {
-  flex: none;
-  color: var(--text);
-  font-weight: var(--fw-medium);
-}
-
-.work-block.is-live .work-block-title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--status-working);
-}
-
-/* the dot breathes, the words hold still (same rule as the RUN badge) */
-.work-block.is-live .work-block-title::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: currentColor;
-  animation: pulse var(--dur-pulse) var(--ease-pulse) infinite;
-}
-
-.work-block-summary {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* rows hang under the header, indented past its caret */
-.work-block-rows {
-  display: flex;
-  flex-direction: column;
-  padding-left: var(--space-5);
-}
-
-.work-row {
-  display: flex;
-  flex-direction: column;
-}
-
-.work-row-head {
-  min-height: calc(var(--control-h) - var(--space-2));
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-
-.work-row-icon {
-  flex: none;
-  width: var(--fs-sm);
-  height: var(--fs-sm);
-}
-
-.work-row-name {
-  flex: none;
-  color: var(--text);
-  font-weight: var(--fw-medium);
-}
-
-.work-row-sep {
-  flex: none;
-}
-
-.work-row-summary {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.work-row-head[aria-expanded="true"] .work-row-summary {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.work-row-thinking .work-row-name {
-  font-style: italic;
-  color: var(--text-dim);
-}
-
-/* what the agent said mid-work: prose, but dim and one step smaller than the answer */
-.work-narration {
-  padding: var(--space-1) var(--space-1) var(--space-2);
-  color: var(--text-dim);
-}
-
-.work-narration .markdown {
-  font-size: var(--fs-sm);
-}
-
-.work-row-detail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-1) 0 var(--space-2) calc(var(--fs-md) + var(--space-2));
-  padding-left: var(--space-3);
-  border-left: var(--hairline-w) solid var(--border);
-}
-
-.work-thinking-text {
-  color: var(--text-dim);
-  font-style: italic;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.chat-tool-io {
-  width: 100%;
-  max-height: calc(var(--row-h) * 5);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  overflow: auto;
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-panel);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-base);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.chat-tool-io pre,
-.chat-tool-io p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.chat-tool-io > :not(:first-child) { margin-top: var(--space-2); }
-
-/* a tool's own pictures (pi reads a file into the result): left-aligned, unlike a user's
-   attachments, and only fetched when the row is opened, so the bytes are not on the page */
-.chat-tool-images {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.chat-tool-file { color: var(--text-strong); }
-.chat-tool-io-meta { color: var(--text-dim); font-size: var(--fs-2xs); }
-.chat-diff { display: block; white-space: pre; overflow-x: auto; }
-.chat-diff-add { color: var(--status-done); }
-.chat-diff-del { color: var(--status-blocked); }
-.chat-diff-head { color: var(--text-dim); font-weight: var(--fw-semibold); }
-
-.chat-tool-output {
-  width: 100%;
-}
-
-.chat-tool-output h4 {
-  margin: 0 0 var(--space-1);
-  color: var(--text-dim);
-  font-size: var(--fs-2xs);
-  font-weight: var(--fw-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
 
 .chat-checklist {
   margin: 0;
@@ -481,18 +281,12 @@
 }
 
 @media (pointer: coarse) {
-  .work-block-head,
-  .work-row-head,
   .markdown-code-copy,
   .markdown-code-more {
     min-height: var(--touch-target);
   }
 
   .markdown-code-copy { width: var(--touch-target); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .work-block.is-live .work-block-title::before { animation: none; }
 }
 
 .todo-list ul {
@@ -535,9 +329,6 @@
 .todo-item.is-in_progress .todo-icon { color: var(--status-working); }
 .todo-item.is-blocked .todo-icon { color: var(--status-blocked); }
 .todo-item.is-dropped { color: var(--text-dim); text-decoration: line-through; }
-
-/* a todo call's detail in the work block shows the list after it */
-.work-row-detail .todo-list { padding: var(--space-1) var(--space-3); }
 
 .todo-list .sr-only {
   position: absolute;
@@ -589,41 +380,6 @@
 
 .markdown-file:hover,
 .markdown-file:hover code {
-  text-decoration-style: solid;
-}
-
-/* a call that failed: its name in the alert colour and a word that says so, even folded */
-.work-row.is-error .work-row-name,
-.work-row.is-error .work-row-icon {
-  color: var(--status-blocked);
-}
-
-.work-row-failed {
-  flex: none;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--status-blocked-tint);
-  color: var(--status-blocked);
-  font-size: var(--fs-2xs);
-  font-weight: var(--fw-semibold);
-}
-
-/* a file a tool call names opens in the viewer: a link in look, a button underneath */
-.chat-tool-file-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-
-.chat-tool-file-link:hover {
-  color: var(--highlight);
   text-decoration-style: solid;
 }
 
@@ -711,17 +467,6 @@
   font-size: var(--fs-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-/* a cut output's rest, on request; once whole, it scrolls in its own box instead of growing the page */
-.chat-tool-more {
-  margin-top: var(--space-1);
-  font-size: var(--fs-xs);
-}
-
-.chat-tool-io.is-whole {
-  max-height: 60vh;
-  overflow: auto;
 }
 
 /* Skills remain discoverable when the work rows are folded. */

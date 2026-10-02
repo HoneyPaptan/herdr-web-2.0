@@ -400,7 +400,7 @@ export const JA: Record<string, string> = {
   // ---- chat view ----
   "Copied": "コピーしました",
   "Output": "出力",
-  "thinking": "思考",
+  "Thought": "思考",
   "Working…": "作業中…",
   "Worked for {duration}": "{duration} 作業しました",
   "Worked": "作業完了",
@@ -625,7 +625,7 @@ export const JA: Record<string, string> = {
   "Plugins": "プラグイン",
   "Show the whole output ({size} characters)": "出力全体を表示 ({size} 文字)",
   "Loading the whole output…": "出力全体を読み込んでいます…",
-  "Couldn't load the whole output — retry": "出力全体を読み込めませんでした — 再試行",
+  "Couldn't load the whole output. Retry": "出力全体を読み込めませんでした。再試行",
   "Type for the terminal…": "ターミナルへの入力…",
   "Terminal input line": "ターミナル入力行",
   "Press Enter in the terminal": "ターミナルで Enter を押す",

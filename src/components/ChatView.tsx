@@ -1,6 +1,6 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
-  ArrowDown, BookOpen, Bot, Brain, Check, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, CircleDot, CircleSlash, Copy, FilePen, FileSearch, Globe, ListChecks, Target, Terminal, Wrench,
+  ArrowDown, BookOpen, Check, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, CircleDot, CircleSlash, Copy, Target,
   type LucideProps,
 } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { AgentMark } from "./AgentMark.tsx";
+import { Orb } from "./Orb.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PromptCard } from "./PromptCard.tsx";
 import { RenderBoundary } from "./RenderBoundary.tsx";
@@ -139,24 +140,33 @@ function TodoList({ items }: { items: TodoItem[] }) {
   ))}</div>;
 }
 
+const TOOL_TEXT = "overflow-x-auto rounded-md bg-surface-raised px-2.5 py-2 font-mono text-tool text-muted-foreground";
+const TOOL_BOX = cn("chat-tool-io flex max-h-40 w-full flex-col gap-2 overflow-auto", TOOL_TEXT);
+const TOOL_PRE = cn("chat-tool-io m-0 max-h-40 w-full overflow-auto whitespace-pre-wrap wrap-anywhere", TOOL_TEXT);
+const INNER_PRE = "m-0 whitespace-pre-wrap wrap-anywhere";
+const DIFF = "chat-diff m-0 block overflow-x-auto whitespace-pre";
+const DIFF_ADD = "chat-diff-add text-accent-add";
+const DIFF_DEL = "chat-diff-del text-destructive";
+const DIFF_HEAD = "chat-diff-head font-medium text-muted-foreground/70";
+
 function ompEditLineClass(line: string): string | undefined {
-  if (line.startsWith("+-") || line.startsWith("-") || /^(CUT|REM)\b/.test(line)) return "chat-diff-del";
-  if (line.startsWith("+")) return "chat-diff-add";
-  if (/^(PUT|MV)/.test(line) || line.startsWith("[")) return "chat-diff-head";
+  if (line.startsWith("+-") || line.startsWith("-") || /^(CUT|REM)\b/.test(line)) return DIFF_DEL;
+  if (line.startsWith("+")) return DIFF_ADD;
+  if (/^(PUT|MV)/.test(line) || line.startsWith("[")) return DIFF_HEAD;
   return undefined;
 }
 
 function ToolFile({ path, suffix }: { path: string; suffix?: string }) {
   const t = useT();
   const open = useContext(OpenFileContext);
-  if (open === null) return <p className="chat-tool-file">{path}{suffix}</p>;
-  return <p className="chat-tool-file"><button type="button" className="chat-tool-file-link" title={t("Open {path}", { path })} onClick={() => open(path)}>{path}</button>{suffix}</p>;
+  if (open === null) return <p className="chat-tool-file m-0 text-foreground">{path}{suffix}</p>;
+  return <p className="chat-tool-file m-0 text-foreground"><button type="button" className="chat-tool-file-link cursor-pointer border-0 bg-transparent p-0 text-left text-inherit underline decoration-dotted underline-offset-[0.2em] wrap-anywhere [font:inherit] hover:text-primary hover:decoration-solid" aria-label={t("Open {path}", { path })} onClick={() => open(path)}>{path}</button>{suffix}</p>;
 }
 
 function EditDiff({ before, after }: { before: string; after: string }) {
   const lines = lineDiff(before, after);
-  return <pre className="chat-diff">{lines.map((line, index) =>
-    <span key={index} className={line.kind === "add" ? "chat-diff-add" : line.kind === "del" ? "chat-diff-del" : undefined}>{line.kind === "add" ? "+ " : line.kind === "del" ? "- " : "  "}{line.text}{"\n"}</span>)}</pre>;
+  return <pre className={DIFF}>{lines.map((line, index) =>
+    <span key={index} className={line.kind === "add" ? DIFF_ADD : line.kind === "del" ? DIFF_DEL : undefined}>{line.kind === "add" ? "+ " : line.kind === "del" ? "- " : "  "}{line.text}{"\n"}</span>)}</pre>;
 }
 
 function PatchView({ patch }: { patch: string }) {
@@ -170,10 +180,10 @@ function PatchView({ patch }: { patch: string }) {
   }
   for (const section of sections) while (section.lines.at(-1)?.trim() === "") section.lines.pop();
   const lineClass = (line: string): string | undefined =>
-    line.startsWith("@@") || line.startsWith("*** Move to:") ? "chat-diff-head" : line.startsWith("+") ? "chat-diff-add" : line.startsWith("-") ? "chat-diff-del" : undefined;
-  return <div className="chat-tool-io">{sections.map((section, index) => <div key={index}>
+    line.startsWith("@@") || line.startsWith("*** Move to:") ? DIFF_HEAD : line.startsWith("+") ? DIFF_ADD : line.startsWith("-") ? DIFF_DEL : undefined;
+  return <div className={TOOL_BOX}>{sections.map((section, index) => <div key={index}>
     {section.file !== null && <ToolFile path={section.file} suffix={section.action === "Update" ? undefined : ` (${section.action.toLowerCase()})`} />}
-    {section.lines.length > 0 && <pre className="chat-diff">{section.lines.map((line, at) => <span key={at} className={lineClass(line)}>{line}{"\n"}</span>)}</pre>}
+    {section.lines.length > 0 && <pre className={DIFF}>{section.lines.map((line, at) => <span key={at} className={lineClass(line)}>{line}{"\n"}</span>)}</pre>}
   </div>)}</div>;
 }
 
@@ -184,25 +194,25 @@ function ToolInputView({ part }: { part: ToolPartType }) {
   if (patch !== null) return <PatchView patch={patch} />;
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(part.input) as Record<string, unknown>; }
-  catch { return <pre className="chat-tool-io">{part.input}</pre>; }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return <pre className="chat-tool-io">{part.input}</pre>;
+  catch { return <pre className={TOOL_PRE}>{part.input}</pre>; }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return <pre className={TOOL_PRE}>{part.input}</pre>;
   const str = (key: string): string | undefined => typeof parsed[key] === "string" ? parsed[key] : undefined;
   const command = str("command") ?? str("cmd");
-  if (command !== undefined) return <div className="chat-tool-io"><pre>{command}</pre>{(str("cwd") ?? str("description")) !== undefined && <p className="chat-tool-io-meta">{str("cwd") ?? str("description")}</p>}</div>;
+  if (command !== undefined) return <div className={TOOL_BOX}><pre className={INNER_PRE}>{command}</pre>{(str("cwd") ?? str("description")) !== undefined && <p className="chat-tool-io-meta m-0 text-ui text-muted-foreground/60">{str("cwd") ?? str("description")}</p>}</div>;
   const oldString = str("old_string");
   const newString = str("new_string");
-  if (oldString !== undefined || newString !== undefined) return <div className="chat-tool-io">{str("file_path") !== undefined && <ToolFile path={str("file_path")!} />}<EditDiff before={oldString ?? ""} after={newString ?? ""} /></div>;
+  if (oldString !== undefined || newString !== undefined) return <div className={TOOL_BOX}>{str("file_path") !== undefined && <ToolFile path={str("file_path")!} />}<EditDiff before={oldString ?? ""} after={newString ?? ""} /></div>;
   if (Array.isArray(parsed["edits"]) && parsed["edits"].every((item) => item !== null && typeof item === "object")) {
     const edits = parsed["edits"] as Array<Record<string, unknown>>;
-    return <div className="chat-tool-io">{str("file_path") !== undefined && <ToolFile path={str("file_path")!} />}{edits.map((item, index) =>
+    return <div className={TOOL_BOX}>{str("file_path") !== undefined && <ToolFile path={str("file_path")!} />}{edits.map((item, index) =>
       <EditDiff key={index} before={typeof item["old_string"] === "string" ? item["old_string"] : ""} after={typeof item["new_string"] === "string" ? item["new_string"] : ""} />)}</div>;
   }
   const editScript = str("input");
-  if (editScript !== undefined) return <pre className="chat-tool-io chat-diff">{editScript.split("\n").map((line, index) => <span key={index} className={ompEditLineClass(line)}>{line}{"\n"}</span>)}</pre>;
+  if (editScript !== undefined) return <pre className={cn(TOOL_PRE, DIFF, "whitespace-pre")}>{editScript.split("\n").map((line, index) => <span key={index} className={ompEditLineClass(line)}>{line}{"\n"}</span>)}</pre>;
   const content = str("content");
-  if (content !== undefined) return <div className="chat-tool-io">{(str("file_path") ?? str("path")) !== undefined && <ToolFile path={(str("file_path") ?? str("path"))!} />}<pre>{content}</pre></div>;
+  if (content !== undefined) return <div className={TOOL_BOX}>{(str("file_path") ?? str("path")) !== undefined && <ToolFile path={(str("file_path") ?? str("path"))!} />}<pre className={INNER_PRE}>{content}</pre></div>;
   const path = str("file_path") ?? str("path");
-  if (path !== undefined) return <div className="chat-tool-io"><ToolFile path={path} suffix={str("pattern") !== undefined ? ` — /${str("pattern")}/` : undefined} /></div>;
+  if (path !== undefined) return <div className={TOOL_BOX}><ToolFile path={path} suffix={str("pattern") !== undefined ? `  /${str("pattern")}/` : undefined} /></div>;
   for (const [key, toRows] of [["list", phaseRows], ["todos", todoRows], ["plan", planRows], ["tasks", taskRows]] as const) {
     const value = parsed[key];
     if (Array.isArray(value)) {
@@ -210,20 +220,7 @@ function ToolInputView({ part }: { part: ToolPartType }) {
       if (rows.length > 0) return <ChecklistView rows={rows} />;
     }
   }
-  return <pre className="chat-tool-io">{part.input}</pre>;
-}
-
-function toolIcon(name: string): ComponentType<LucideProps> {
-  const normalized = name.toLowerCase();
-  if (normalized === "skill") return BookOpen;
-  if (normalized.includes("bash") || normalized.includes("command")) return Terminal;
-  if (["read", "glob", "grep"].some((item) => normalized.includes(item))) return FileSearch;
-  if (normalized.includes("edit") || normalized.includes("write")) return FilePen;
-  if (normalized.includes("task") || normalized.includes("agent")) return Bot;
-  if (normalized.includes("web")) return Globe;
-  if (normalized.includes("todo")) return ListChecks;
-  if (normalized.endsWith("_goal")) return Target;
-  return Wrench;
+  return <pre className={TOOL_PRE}>{part.input}</pre>;
 }
 
 function useWholeOutput(ref: string | undefined): { text: string | null; state: "idle" | "loading" | "failed"; load: () => void } {
@@ -238,31 +235,38 @@ function ToolImages({ paneId, part }: { paneId: string; part: ToolPartType }) {
   const t = useT();
   const machineId = useMachineId();
   if (part.images === undefined || part.images.length === 0) return null;
-  return <div className="chat-tool-images">{part.images.map((image) => {
+  return <div className="chat-tool-images flex flex-wrap gap-2">{part.images.map((image) => {
     const src = machinePath(machineId, `pane/conversation/image?${new URLSearchParams({ pane_id: paneId, ref: image.ref }).toString()}`);
     return <a key={image.ref} className="chat-user-image" href={src} target="_blank" rel="noopener noreferrer" title={t("Open image")}><img src={src} alt={t("Attached image")} loading="lazy" /></a>;
   })}</div>;
+}
+
+const ROW_CHEVRON = "size-3 shrink-0 text-muted-foreground transition-all";
+
+function RowChevron({ open, group }: { open: boolean; group: "tool" | "think" | "turn" }) {
+  const hover = { tool: "group-hover/tool:opacity-100", think: "group-hover/think:opacity-100", turn: "group-hover/turn:opacity-100" }[group];
+  return <ChevronRight aria-hidden="true" className={cn(ROW_CHEVRON, open ? "rotate-90 opacity-100" : cn("opacity-0", hover))} />;
 }
 
 function WorkRow({ paneId, part }: { paneId: string; part: ToolPartType }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const whole = useWholeOutput(part.output_ref);
-  const Icon = toolIcon(part.name);
   const summary = todoCallSummary(part) ?? part.summary;
   const output = isTodoTool(part.name) && parseTodoAnswer(part.output) !== null ? "" : whole.text ?? part.output;
-  return <div className={`work-row${part.error ? " is-error" : ""}`}>
-    <button type="button" className="work-row-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-      <span className="work-row-caret" aria-hidden="true">{open ? <ChevronDown /> : <ChevronRight />}</span>
-      <Icon className="work-row-icon" aria-hidden="true" />
-      <span className="work-row-name">{part.name}</span>
-      {part.error && <span className="work-row-failed">{t("failed")}</span>}
-      {summary.length > 0 && summary !== part.name && <><span className="work-row-sep" aria-hidden="true">/</span><span className="work-row-summary">{summary}</span></>}
+  return <div className={cn("work-row group/tool flex flex-col gap-1.5", part.error && "is-error")}>
+    <button type="button" className="work-row-head flex w-full items-center gap-2 text-left text-chat pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <span className={cn("shrink-0", part.error ? "text-destructive" : "text-foreground/80")}>{part.name}</span>
+      {summary.length > 0 && summary !== part.name && <span className="min-w-0 max-w-fit truncate font-mono text-muted-foreground">{summary}</span>}
+      {part.error && <span className="shrink-0 text-destructive">{t("failed")}</span>}
+      <RowChevron open={open} group="tool" />
     </button>
-    {open && <div className="work-row-detail"><ToolInputView part={part} /><ToolImages paneId={paneId} part={part} />{output.length > 0 && <section className="chat-tool-output"><h4>{t(part.error ? "Error" : "Output")}</h4><pre className={`chat-tool-io${whole.text !== null ? " is-whole" : ""}`}>{output}</pre>
-      {part.output_ref !== undefined && whole.text === null && <button type="button" className="btn btn-ghost chat-tool-more" disabled={whole.state === "loading"} onClick={whole.load}>
-        {t(whole.state === "loading" ? "Loading the whole output…" : whole.state === "failed" ? "Couldn't load the whole output — retry" : "Show the whole output ({size} characters)", { size: formatTokens(part.output_size ?? 0) })}
-      </button>}</section>}</div>}
+    {open && <div className="work-row-detail flex flex-col gap-1.5"><ToolInputView part={part} /><ToolImages paneId={paneId} part={part} />{output.length > 0 && <section className="chat-tool-output flex flex-col gap-1">
+      <h4 className="text-ui text-muted-foreground/70">{t(part.error ? "Error" : "Output")}</h4>
+      <pre className={cn(TOOL_PRE, part.error && "text-destructive", whole.text !== null && "is-whole max-h-[60vh]")}>{output}</pre>
+      {part.output_ref !== undefined && whole.text === null && <Button variant="ghost" size="xs" className="chat-tool-more self-start text-muted-foreground" disabled={whole.state === "loading"} onClick={whole.load}>
+        {t(whole.state === "loading" ? "Loading the whole output…" : whole.state === "failed" ? "Couldn't load the whole output. Retry" : "Show the whole output ({size} characters)", { size: formatTokens(part.output_size ?? 0) })}
+      </Button>}</section>}</div>}
   </div>;
 }
 
@@ -270,12 +274,11 @@ function ThinkingRow({ text }: { text: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   return <div className="work-row work-row-thinking">
-    <button type="button" className="work-row-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-      <span className="work-row-caret" aria-hidden="true">{open ? <ChevronDown /> : <ChevronRight />}</span>
-      <Brain className="work-row-icon" aria-hidden="true" />
-      <span className="work-row-name">{t("thinking")}</span>
+    <button type="button" className="work-row-head group/think flex items-center gap-1.5 text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <span>{t("Thought")}</span>
+      <RowChevron open={open} group="think" />
     </button>
-    {open && <div className="work-row-detail work-thinking-text">{text}</div>}
+    {open && <p className="work-thinking-text mt-1 whitespace-pre-wrap wrap-anywhere text-chat text-muted-foreground italic">{text}</p>}
   </div>;
 }
 
@@ -287,13 +290,14 @@ function WorkBlockView({ paneId, parts, duration, live, defaultOpen, showThinkin
   if (visible.length === 0) return null;
   const summary = workSummary(parts);
   const title = live ? t("Working…") : duration !== null ? t("Worked for {duration}", { duration }) : t("Worked");
-  return <section className={`work-block${live ? " is-live" : ""}`}>
-    <button type="button" className="work-block-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-      <span className="work-row-caret" aria-hidden="true">{open ? <ChevronDown /> : <ChevronRight />}</span>
-      <span className="work-block-title">{title}</span>
-      {summary.length > 0 && <span className="work-block-summary">· {summary}</span>}
+  return <section className={cn("work-block flex w-full flex-col gap-3", live && "is-live")}>
+    <button type="button" className="work-block-head group/turn flex min-w-0 items-center gap-2 text-left text-chat text-muted-foreground pointer-coarse:min-h-9" aria-expanded={open} onClick={() => setOpen(!open)}>
+      {live && <Orb state="listening" aria-hidden="true" className="shrink-0" />}
+      <span className={cn("work-block-title shrink-0", live && "shimmer-text")}>{title}</span>
+      {summary.length > 0 && <span className="work-block-summary min-w-0 truncate text-muted-foreground/60">{summary}</span>}
+      <RowChevron open={open} group="turn" />
     </button>
-    {open && <div className="work-block-rows">{visible.map((part, index) =>
+    {open && <div className="work-block-rows flex flex-col gap-3">{visible.map((part, index) =>
       part.kind === "thinking" ? <ThinkingRow key={index} text={part.text} />
         : part.kind === "text" ? <div key={index} className="work-narration"><Markdown>{part.text}</Markdown></div>
           : part.kind === "tool" ? <WorkRow key={index} paneId={paneId} part={part} /> : null)}</div>}

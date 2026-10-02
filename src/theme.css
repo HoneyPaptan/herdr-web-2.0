@@ -372,3 +372,18 @@
     linear-gradient(135deg, transparent 0 52%, var(--surface-card) 52% 100%),
     linear-gradient(var(--background), var(--background));
 }
+
+@utility shimmer-text {
+  animation: var(--animate-shimmer);
+  display: inline-block;
+  will-change: transform;
+  background-image: linear-gradient(90deg, var(--color-muted-foreground) 35%, var(--color-foreground) 50%, var(--color-muted-foreground) 65%);
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background-image: none;
+    color: var(--color-muted-foreground);
+  }
+}

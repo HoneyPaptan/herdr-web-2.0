@@ -402,7 +402,7 @@ export const ZH: Record<string, string> = {
   // ---- chat view ----
   "Copied": "已复制",
   "Output": "输出",
-  "thinking": "思考",
+  "Thought": "思考",
   "Working…": "正在工作…",
   "Worked for {duration}": "工作了 {duration}",
   "Worked": "已工作",
@@ -627,7 +627,7 @@ export const ZH: Record<string, string> = {
   "Plugins": "插件",
   "Show the whole output ({size} characters)": "显示完整输出（{size} 个字符）",
   "Loading the whole output…": "正在加载完整输出…",
-  "Couldn't load the whole output — retry": "无法加载完整输出。重试",
+  "Couldn't load the whole output. Retry": "无法加载完整输出。重试",
   "Type for the terminal…": "输入要发送到终端的内容…",
   "Terminal input line": "终端输入行",
   "Press Enter in the terminal": "在终端中按 Enter",

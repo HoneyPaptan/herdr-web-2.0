@@ -398,7 +398,7 @@ export const KO: Record<string, string> = {
   // ---- chat view ----
   "Copied": "복사됨",
   "Output": "출력",
-  "thinking": "생각",
+  "Thought": "생각",
   "Working…": "작업 중…",
   "Worked for {duration}": "{duration} 작업",
   "Worked": "작업함",
@@ -623,7 +623,7 @@ export const KO: Record<string, string> = {
   "Plugins": "플러그인",
   "Show the whole output ({size} characters)": "전체 출력 보기 ({size}자)",
   "Loading the whole output…": "전체 출력을 불러오는 중…",
-  "Couldn't load the whole output — retry": "전체 출력을 불러오지 못했습니다 — 다시 시도",
+  "Couldn't load the whole output. Retry": "전체 출력을 불러오지 못했습니다. 다시 시도",
   "Type for the terminal…": "터미널에 보낼 내용…",
   "Terminal input line": "터미널 입력줄",
   "Press Enter in the terminal": "터미널에서 Enter 누르기",
