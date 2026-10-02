@@ -218,7 +218,8 @@ export function PaneTerminal({
     const linkPressed = (event: MouseEvent): boolean => event.button === 0 && !term.hasSelection();
     const term = new Terminal({
       convertEol: false,
-      cursorBlink: true,
+      cursorBlink: settings.terminalCursorBlink,
+      cursorStyle: settings.terminalCursorStyle,
       scrollback: 0,
       allowProposedApi: true,
       fontSize: terminalFontSize,
@@ -801,6 +802,14 @@ export function PaneTerminal({
     const term = termRef.current;
     if (term) term.options.theme = terminalTheme(palette, theme);
   }, [theme, palette]);
+
+  const { terminalCursorStyle, terminalCursorBlink } = settings;
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.cursorStyle = terminalCursorStyle;
+    term.options.cursorBlink = terminalCursorBlink;
+  }, [terminalCursorStyle, terminalCursorBlink]);
 
   const fontFamily = terminalFontStack(terminalFontFamily);
   useEffect(() => {

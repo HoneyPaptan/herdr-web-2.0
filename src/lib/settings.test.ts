@@ -3,8 +3,23 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FONT_FAMILY_MAX_CHARS } from "./fontFamily.ts";
-import { alertPrefs, CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, quickReplyButtons, sanitizeSettings, forgetPaneViews } from "./settings.ts";
+import { alertPrefs, CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, quickReplyButtons, sanitizeSettings, forgetPaneViews, UI_FONT_MAX, UI_FONT_MIN, uiFontSize } from "./settings.ts";
 import { coerceTheme, DEFAULT_THEME, modeFor, terminalTheme, themeColor, THEMES } from "./theme.ts";
+
+it("clamps the interface text size and falls back to the theme size when unset", () => {
+  expect(uiFontSize(DEFAULT_SETTINGS)).toBe(13);
+  expect(sanitizeSettings({ uiFontSize: 15.4 }).uiFontSize).toBe(15);
+  expect(sanitizeSettings({ uiFontSize: 99 }).uiFontSize).toBe(UI_FONT_MAX);
+  expect(sanitizeSettings({ uiFontSize: 2 }).uiFontSize).toBe(UI_FONT_MIN);
+  expect(sanitizeSettings({ uiFontSize: "14" }).uiFontSize).toBeNull();
+});
+
+it("keeps only the cursor shapes xterm knows and defaults to a blinking block", () => {
+  expect(sanitizeSettings({}).terminalCursorStyle).toBe("block");
+  expect(sanitizeSettings({}).terminalCursorBlink).toBe(true);
+  expect(sanitizeSettings({ terminalCursorStyle: "bar", terminalCursorBlink: false })).toMatchObject({ terminalCursorStyle: "bar", terminalCursorBlink: false });
+  expect(sanitizeSettings({ terminalCursorStyle: "beam" }).terminalCursorStyle).toBe("block");
+});
 
 it("keeps the screen wake lock off until this device explicitly enables it", () => {
   expect(DEFAULT_SETTINGS.keepScreenOn).toBe(false);

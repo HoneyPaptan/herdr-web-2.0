@@ -12,6 +12,9 @@ export type UsageCount = "used" | "left";
 export type Palette = ThemeName;
 export type UsagePlacement = "footer" | "top";
 export type DefaultView = "auto" | "chat" | "terminal";
+export type TerminalCursor = "block" | "bar" | "underline";
+
+export const TERMINAL_CURSORS: readonly TerminalCursor[] = ["block", "bar", "underline"];
 
 import { sanitizeShortcutOverrides, type ShortcutOverrides } from "./shortcutBindings.ts";
 
@@ -26,6 +29,9 @@ export interface Settings {
   terminalWheelSpeed: number;
   terminalFontFamily: string;
   terminalGpu: boolean;
+  terminalCursorStyle: TerminalCursor;
+  terminalCursorBlink: boolean;
+  uiFontSize: number | null;
   chatFontSize: number | null;
   chatFontFamily: string;
   enterSends: boolean;
@@ -61,6 +67,9 @@ export const DEFAULT_SETTINGS: Settings = {
   terminalWheelSpeed: 1,
   terminalFontFamily: "",
   terminalGpu: true,
+  terminalCursorStyle: "block",
+  terminalCursorBlink: true,
+  uiFontSize: null,
   chatFontSize: null,
   chatFontFamily: "",
   enterSends: true,
@@ -112,8 +121,20 @@ export const CHAT_FONT_MIN = 11;
 export const CHAT_FONT_MAX = 24;
 const CHAT_BASE_FONT: Record<Density, number> = { comfortable: 14, compact: 13 };
 
+export const UI_FONT_MIN = 11;
+export const UI_FONT_MAX = 16;
+const UI_BASE_FONT = 13;
+
+function clampedOrNull(value: unknown, min: number, max: number): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : null;
+}
+
 function clampFont(size: number): number {
   return Math.min(TERMINAL_FONT_MAX, Math.max(TERMINAL_FONT_MIN, Math.round(size)));
+}
+
+export function uiFontSize(settings: Settings): number {
+  return settings.uiFontSize ?? UI_BASE_FONT;
 }
 
 export function chatFontSize(settings: Settings): number {
@@ -125,7 +146,6 @@ export function sanitizeSettings(raw: unknown): Settings {
   const theme = record["theme"];
   const density = record["density"];
   const font = record["terminalFontSize"];
-  const chatFont = record["chatFontSize"];
   return {
     terminalInputMode: record["terminalInputMode"] === "line" || record["terminalInputMode"] === "direct" ? record["terminalInputMode"] : "auto",
     shortcutOverrides: sanitizeShortcutOverrides(record["shortcutOverrides"]),
@@ -137,11 +157,12 @@ export function sanitizeSettings(raw: unknown): Settings {
     terminalWheelSpeed: typeof record["terminalWheelSpeed"] === "number" && Number.isFinite(record["terminalWheelSpeed"])
       ? Math.min(TERMINAL_WHEEL_SPEED_MAX, Math.max(TERMINAL_WHEEL_SPEED_MIN, Math.round(record["terminalWheelSpeed"])))
       : DEFAULT_SETTINGS.terminalWheelSpeed,
-    chatFontSize: typeof chatFont === "number" && Number.isFinite(chatFont)
-      ? Math.min(CHAT_FONT_MAX, Math.max(CHAT_FONT_MIN, Math.round(chatFont)))
-      : DEFAULT_SETTINGS.chatFontSize,
+    chatFontSize: clampedOrNull(record["chatFontSize"], CHAT_FONT_MIN, CHAT_FONT_MAX),
+    uiFontSize: clampedOrNull(record["uiFontSize"], UI_FONT_MIN, UI_FONT_MAX),
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
     terminalGpu: typeof record["terminalGpu"] === "boolean" ? record["terminalGpu"] : DEFAULT_SETTINGS.terminalGpu,
+    terminalCursorStyle: TERMINAL_CURSORS.includes(record["terminalCursorStyle"] as TerminalCursor) ? record["terminalCursorStyle"] as TerminalCursor : DEFAULT_SETTINGS.terminalCursorStyle,
+    terminalCursorBlink: typeof record["terminalCursorBlink"] === "boolean" ? record["terminalCursorBlink"] : DEFAULT_SETTINGS.terminalCursorBlink,
     chatFontFamily: sanitizeFontFamily(record["chatFontFamily"]),
     enterSends: typeof record["enterSends"] === "boolean" ? record["enterSends"] : DEFAULT_SETTINGS.enterSends,
     showThinking: typeof record["showThinking"] === "boolean" ? record["showThinking"] : DEFAULT_SETTINGS.showThinking,
@@ -200,6 +221,8 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   root.classList.toggle("dark", resolved === "dark");
   root.dataset["density"] = settings.density;
   root.style.setProperty("--chat-scale", String(chatFontSize(settings) / CHAT_BASE_FONT[settings.density]));
+  if (settings.uiFontSize === null) root.style.removeProperty("--fs-ui");
+  else root.style.setProperty("--fs-ui", `${settings.uiFontSize}px`);
   const chatFont = chatFontStack(settings.chatFontFamily);
   if (chatFont === null) root.style.removeProperty("--font-chat");
   else root.style.setProperty("--font-chat", chatFont);
