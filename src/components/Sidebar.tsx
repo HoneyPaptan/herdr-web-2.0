@@ -9,7 +9,7 @@ import type { PaneInfo, SessionSnapshot, WorkspaceInfo, HerdrPane } from "../../
 import { paneTitle } from "../../shared/notify-policy.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import type { AppActions } from "../lib/actions.ts";
-import { WorkingOrb } from "./StatusMark.tsx";
+import { StatusOrb } from "./StatusMark.tsx";
 import { GroupSpacer, HeadingRow, ROW_INPUT, RowAction, SessionRow, SIDEBAR_EMPTY } from "./SidebarRows.tsx";
 import { folderName, shortPathTitle } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
@@ -274,7 +274,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
     <RowAction label={t("Close {title}", { title: displayTitle })} onClick={() => closePaneClick(paneId)}><X /></RowAction>
   );
 
-  const paneRow = (workspace: WorkspaceInfo, pane: PaneInfo, depth: number, continues: boolean, scope: string) => {
+  const paneRow = (workspace: WorkspaceInfo, pane: PaneInfo, depth: number, continues: boolean, scope: string, carry: readonly number[] = [], movable = false) => {
     const displayTitle = displayPaneTitle(pane);
     const selected = pane.pane_id === selectedPaneId;
     const editing = editingPaneId === pane.pane_id;
@@ -286,32 +286,34 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
           status={pane.agent_status}
           depth={depth}
           continues={continues}
+          carry={carry}
           open={editing || armedId === pane.pane_id}
           aria-label={`${displayTitle}, ${pane.agent ?? t("Shell")}`}
           title={editing ? renameField(paneLabel, t("Pane name"), setPaneLabel, () => savePaneRename(pane.pane_id), () => setEditingPaneId(null)) : displayTitle}
           meta={<>
             {pane.restore_error && <RestoreErrorBadge reason={pane.restore_error} />}
             <BackgroundBadge count={(pane as HerdrPane).background_tasks} />
-            <WorkingOrb status={pane.agent_status} />
+            <StatusOrb status={pane.agent_status} />
           </>}
           actions={editing ? undefined : <>
             {armedId !== pane.pane_id && <RowAction label={t("Rename {title}", { title: displayTitle })} onClick={() => beginPaneRename(pane)}><Pencil /></RowAction>}
             {closeActions(pane.pane_id, displayTitle)}
           </>}
           onSelect={() => actions.selectPane(pane.pane_id)}
-          {...(depth === 0 ? dragProps(workspace.workspace_id) : {})}
+          {...(movable ? dragProps(workspace.workspace_id) : {})}
         />
         {inlineError?.paneId === pane.pane_id && errorFor(inlineError.message)}
       </Fragment>
     );
   };
 
-  const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "") => {
+  const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "", depth = 0, continues = false) => {
     if (visiblePanes.length === 0) return null;
     const groupKey = `workspace:${workspace.workspace_id}`;
     const collapsed = collapsedGroups.has(groupKey);
     const editing = editingWorkspaceId === `${scope}\u0000${workspace.workspace_id}`;
     const single = visiblePanes.length === 1;
+    const childCarry = depth > 0 && continues ? [depth] : [];
     return (
       <div
         className={cn("workspace flex flex-col gap-px", dragWorkspaceId === workspace.workspace_id && "opacity-50")}
@@ -322,23 +324,25 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
         }}
         onDrop={(event) => onDrop(event, workspace.workspace_id)}
       >
-        {single ? paneRow(workspace, visiblePanes[0]!, 0, false, scope) : (
+        {single ? paneRow(workspace, visiblePanes[0]!, depth, continues, scope, [], true) : (
           <>
             <SessionRow
               className="workspace-header"
               active={false}
+              depth={depth}
+              continues={continues}
               status={collapsed ? workspace.agent_status : undefined}
               opensRail={!collapsed}
               open={editing}
               aria-expanded={!collapsed}
               aria-label={collapsed ? t("Expand workspace {name}", { name: workspace.label }) : t("Collapse workspace {name}", { name: workspace.label })}
               title={editing ? renameField(workspaceLabel, t("Workspace name"), setWorkspaceLabel, () => saveWorkspaceRename(workspace.workspace_id), () => setEditingWorkspaceId(null)) : workspace.label}
-              meta={collapsed ? <WorkingOrb status={workspace.agent_status} /> : undefined}
+              meta={collapsed ? <StatusOrb status={workspace.agent_status} /> : undefined}
               actions={editing ? undefined : <RowAction label={t("Rename workspace {name}", { name: workspace.label })} onClick={() => beginWorkspaceRename(workspace, scope)}><Pencil /></RowAction>}
               onSelect={() => setGroupCollapsed(groupKey, !collapsed)}
               {...dragProps(workspace.workspace_id)}
             />
-            {!collapsed && visiblePanes.map((pane, index) => paneRow(workspace, pane, 1, index < visiblePanes.length - 1, scope))}
+            {!collapsed && visiblePanes.map((pane, index) => paneRow(workspace, pane, depth + 1, index < visiblePanes.length - 1, scope, childCarry))}
           </>
         )}
       </div>
@@ -358,10 +362,11 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
             className="directory-header"
             label={name}
             expanded={!collapsed}
+            opensRail={!collapsed && directory.workspaces.length > 0}
             toggleLabel={collapsed ? t("Expand folder {name}", { name: full }) : t("Collapse folder {name}", { name: full })}
             onToggle={() => setGroupCollapsed(groupKey, !collapsed)}
           />
-          {!collapsed && directory.workspaces.map(({ workspace, panes: visiblePanes }) => renderWorkspace(workspace, visiblePanes, directory.key))}
+          {!collapsed && directory.workspaces.map(({ workspace, panes: visiblePanes }, index) => renderWorkspace(workspace, visiblePanes, directory.key, 1, index < directory.workspaces.length - 1))}
         </div>
       </Fragment>
     );
