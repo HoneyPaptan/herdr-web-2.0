@@ -665,6 +665,8 @@ export const ZH: Record<string, string> = {
   "Move {name} down": "将 {name} 下移",
   "Cursor models": "Cursor 模型",
   "Subscription usage": "订阅用量",
+  "Usage": "用量",
+  "Last checked {date}": "上次检查 {date}",
   "Show plan limits": "显示套餐限额",
   "Session": "会话",
   "Daily": "每日",

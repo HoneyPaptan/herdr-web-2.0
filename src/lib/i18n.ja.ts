@@ -663,6 +663,8 @@ export const JA: Record<string, string> = {
   "Move {name} down": "{name} を下へ移動",
   "Cursor models": "Cursor のモデル",
   "Subscription usage": "サブスクリプション使用量",
+  "Usage": "使用量",
+  "Last checked {date}": "最終確認 {date}",
   "Show plan limits": "プランの上限を表示",
   "Session": "セッション",
   "Daily": "日次",

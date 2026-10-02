@@ -661,6 +661,8 @@ export const KO: Record<string, string> = {
   "Move {name} down": "{name} 아래로 이동",
   "Cursor models": "Cursor 모델",
   "Subscription usage": "구독 사용량",
+  "Usage": "사용량",
+  "Last checked {date}": "마지막 확인 {date}",
   "Show plan limits": "요금제 한도 표시",
   "Session": "세션",
   "Daily": "일간",
