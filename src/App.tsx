@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, FolderOpen, Lock, Menu, MessageSquare, PanelLeft, Search, SquareTerminal, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
@@ -8,12 +8,8 @@ import { displayPaneTitle } from "./components/Sidebar.tsx";
 import { PaneTerminal } from "./components/PaneTerminal.tsx";
 import { AccessGate } from "./components/AccessGate.tsx";
 import { AgentMark } from "./components/AgentMark.tsx";
-import { NewSessionDialog } from "./components/NewSessionDialog.tsx";
-import { SettingsDialog } from "./components/SettingsDialog.tsx";
-import { CommandPalette } from "./components/CommandPalette.tsx";
 import { MachineContext } from "./lib/machineContext.tsx";
 import { MachineActionBanner, MachineSidebar } from "./components/MachineSidebar.tsx";
-import { MachineDialog } from "./components/MachineDialog.tsx";
 import { paneStorageId, type Machine, type MachineEvent } from "../shared/machines.ts";
 import { takeAuthTokenFromUrl } from "./lib/authLink.ts";
 import { applyPaneStatus } from "./lib/snapshot.ts";
@@ -34,8 +30,6 @@ import { ensurePushSubscription, pushSupported, removePushSubscription } from ".
 import { onNotificationTarget } from "./lib/notificationTarget.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { UpdateNotice } from "./components/UpdateControls.tsx";
-import { FilesDialog } from "./components/FilesDialog.tsx";
-import { FileViewer } from "./components/FileViewer.tsx";
 import { OpenFileContext } from "./lib/filePaths.ts";
 import { useFileViewer } from "./lib/useFileViewer.ts";
 import { useT } from "./lib/i18n.ts";
@@ -43,6 +37,14 @@ import { useScreenWakeLock } from "./lib/wakeLock.ts";
 import { watchDrawerSwipe } from "./lib/edgeSwipe.ts";
 import { Droplet } from "./components/Droplet.tsx";
 import { dropletAllows, endedTurn, showDroplet, trackTurn, type DropletKind } from "./lib/droplet.ts";
+import { lazyNamed, preloadWhenIdle, useOpenedOnce } from "./lib/lazy.ts";
+
+const NewSessionDialog = lazyNamed(() => import("./components/NewSessionDialog.tsx"), "NewSessionDialog");
+const SettingsDialog = lazyNamed(() => import("./components/SettingsDialog.tsx"), "SettingsDialog");
+const CommandPalette = lazyNamed(() => import("./components/CommandPalette.tsx"), "CommandPalette");
+const MachineDialog = lazyNamed(() => import("./components/MachineDialog.tsx"), "MachineDialog");
+const FilesDialog = lazyNamed(() => import("./components/FilesDialog.tsx"), "FilesDialog");
+const FileViewer = lazyNamed(() => import("./components/FileViewer.tsx"), "FileViewer");
 
 const APP_TITLE = "herdr web ui";
 const POLL_MS = 5000;
@@ -188,6 +190,10 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const settingsMounted = useOpenedOnce(settingsOpen);
+  const paletteMounted = useOpenedOnce(paletteOpen);
+  const newSessionMounted = useOpenedOnce(newSessionOpen);
+  useEffect(() => preloadWhenIdle(SettingsDialog.preload, CommandPalette.preload, NewSessionDialog.preload, FilesDialog.preload, FileViewer.preload), []);
   const [connected, setConnected] = useState(false);
   const [outputStopped, setOutputStopped] = useState(false);
   // the connection's role: the server's role-ack confirms it (no UI control today)
@@ -727,7 +733,7 @@ export function App() {
         </OpenFileContext.Provider>
       </div>
 
-      <MachineContext.Provider value={newSessionMachineId}><NewSessionDialog
+      {newSessionMounted && <Suspense fallback={null}><MachineContext.Provider value={newSessionMachineId}><NewSessionDialog
         key={newSessionMachineId}
         machineName={machines.find((m) => m.id === newSessionMachineId)?.name ?? newSessionMachineId}
         open={newSessionOpen}
@@ -738,8 +744,8 @@ export function App() {
           selectTarget(newSessionMachineId, paneId);
           void load();
         }}
-      /></MachineContext.Provider>
-      {machineDialog && <MachineDialog updateRemote={updateRemote} machine={machineDialog === "new" ? undefined : machineDialog} onClose={() => setMachineDialog(null)} onConnected={(id) => { setMachineDialog(null); selectTarget(id, null); void load(); }} />}
+      /></MachineContext.Provider></Suspense>}
+      {machineDialog && <Suspense fallback={null}><MachineDialog updateRemote={updateRemote} machine={machineDialog === "new" ? undefined : machineDialog} onClose={() => setMachineDialog(null)} onConnected={(id) => { setMachineDialog(null); selectTarget(id, null); void load(); }} /></Suspense>}
       <Droplet onOpen={(machineId, paneId) => {
         // an ended pane's card outlives the pane: the refetch has dropped it, and selecting it attaches nothing
         if (!machinesRef.current.find((m) => m.id === machineId)?.snapshot?.panes.some((p) => p.pane_id === paneId)) return;
@@ -747,14 +753,14 @@ export function App() {
         setFilesOpen(false);
         selectTargetRef.current(machineId, paneId);
       }} />
-      <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} />
+      {settingsMounted && <Suspense fallback={null}><SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} /></Suspense>}
       {filesOpen && selectedPane && (
-        <FilesDialog start={selectedPane.foreground_cwd ?? selectedPane.cwd ?? ""} viewing={viewing !== null} onOpenFile={viewFile} onClose={() => setFilesOpen(false)} />
+        <Suspense fallback={null}><FilesDialog start={selectedPane.foreground_cwd ?? selectedPane.cwd ?? ""} viewing={viewing !== null} onOpenFile={viewFile} onClose={() => setFilesOpen(false)} /></Suspense>
       )}
       {viewing !== null && <MachineContext.Provider value={viewing.machineId}>
-        <FileViewer key={viewing.path} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path })} />
+        <Suspense fallback={null}><FileViewer key={viewing.path} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path })} /></Suspense>
       </MachineContext.Provider>}
-      <CommandPalette key={selectedMachineId} open={paletteOpen} onClose={() => setPaletteOpen(false)} snapshot={snapshot} selectedPaneId={selectedPaneId} view={view} actions={actions} />
+      {paletteMounted && <Suspense fallback={null}><CommandPalette key={selectedMachineId} open={paletteOpen} onClose={() => setPaletteOpen(false)} snapshot={snapshot} selectedPaneId={selectedPaneId} view={view} actions={actions} /></Suspense>}
     </div></MachineContext.Provider>
   );
 }
