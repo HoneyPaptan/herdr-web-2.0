@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, CircleDashed, Download, Ellipsis, Monitor, Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { CircleDashed, Download, Ellipsis, Monitor, Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,7 @@ import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { Sidebar } from "./Sidebar.tsx";
 import { NeedsInput } from "./NeedsInput.tsx";
+import { GroupSpacer, HeadingRow, RowAction, SIDEBAR_EMPTY, SIDEBAR_LIST } from "./SidebarRows.tsx";
 import { UsageMeters, UsagePanel } from "./UsageMeters.tsx";
 import "./Machines.css";
 import { useT } from "../lib/i18n.ts";
@@ -81,10 +82,10 @@ export function MachineSidebar(props: Props) {
   return <div className="sidebar-shell">
     <SidebarActions target={target} onNew={props.actions.openNewSession} />
     <UsagePanel />
-    <div className="machine-list" aria-label={t("PCs and workspaces")}>
+    <div className={cn("machine-list pt-1", SIDEBAR_LIST)} aria-label={t("PCs and workspaces")}>
       <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
-      {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} />)}
-      {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
+      {props.machines.map((machine, index) => <Fragment key={machine.id}>{index > 0 && <GroupSpacer />}<MachineGroup {...props} machine={machine} /></Fragment>)}
+      {!props.machines.length && <p className={SIDEBAR_EMPTY} role="status">{t("Loading PCs…")}</p>}
     </div>
     <footer className="sidebar-footer relative flex shrink-0 flex-col gap-1 border-t border-border px-2 pt-2 pb-[calc(--spacing(2)+env(safe-area-inset-bottom,0px))]">
       {installHelpOpen && <p className="px-1.5 text-ui text-muted-foreground/60" role="status">{help}</p>}
@@ -116,21 +117,24 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
     setCollapsed(!collapsed);
     try { localStorage.setItem(`herdr-web-ui:pc-collapsed:${machine.id}`, collapsed ? "0" : "1"); } catch {}
   };
-  return <section className={`machine-group${props.selectedMachineId === machine.id ? " is-current" : ""}`} aria-label={t("PC {name}", { name: machine.name })}>
-    <header className="machine-header">
-      <button className="machine-toggle" aria-expanded={!collapsed} onClick={toggle}>
-        {collapsed ? <ChevronRight className="machine-caret" aria-hidden="true" /> : <ChevronDown className="machine-caret" aria-hidden="true" />}
-        <Monitor className="machine-icon" aria-hidden="true" />
-        <span className="machine-name">{machine.name}</span>
-        {machine.kind === "local" && <span className="machine-kind shrink-0 text-ui text-muted-foreground/60" title={t("The computer this app runs on")}>{t("Host")}</span>}
-        {(machine.state === "connecting" || machine.state === "reconnecting") && <CircleDashed aria-hidden="true" strokeWidth={1.5} className="size-3.5 shrink-0 animate-spin text-muted-foreground [animation-duration:3s] motion-reduce:animate-none" />}
-      </button>
-      <button className="sidebar-row-action" disabled={!online} aria-label={t("New session on {name}", { name: machine.name })} title={t("New session")} onClick={() => props.onNew(machine.id)}><Plus aria-hidden="true" /></button>
-      {machine.kind === "ssh" && <button className="sidebar-row-action" aria-label={t("Manage {name}", { name: machine.name })} title={t("Manage PC")} aria-expanded={editing} onClick={() => { setEditing(!editing); setConfirmDelete(false); }}><SlidersHorizontal aria-hidden="true" /></button>}
-    </header>
-    {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p className={`machine-state is-${machine.state}${online ? " visually-hidden" : ""}`} role="status" title={machine.error ?? undefined}>
-      <span className="machine-state-word">{t(STATE_WORD[machine.state])}</span>
-      {machine.error && <span className="machine-state-detail">{machine.error}</span>}
+  return <section className="machine-group flex flex-col gap-px" aria-label={t("PC {name}", { name: machine.name })}>
+    <HeadingRow
+      className="machine-header"
+      label={machine.name}
+      expanded={!collapsed}
+      onToggle={toggle}
+      detail={<>
+        {machine.kind === "local" && <span className="shrink-0 text-muted-foreground/60">{t("Host")}</span>}
+        {(machine.state === "connecting" || machine.state === "reconnecting") && <CircleDashed aria-hidden="true" strokeWidth={1.5} className="size-3.5 shrink-0 animate-spin [animation-duration:3s] motion-reduce:animate-none" />}
+      </>}
+      actions={<>
+        <RowAction label={t("New session on {name}", { name: machine.name })} disabled={!online} onClick={() => props.onNew(machine.id)}><Plus /></RowAction>
+        {machine.kind === "ssh" && <RowAction label={t("Manage {name}", { name: machine.name })} pressed={editing} onClick={() => { setEditing(!editing); setConfirmDelete(false); }}><SlidersHorizontal /></RowAction>}
+      </>}
+    />
+    {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p className={cn("flex flex-col gap-0.5 pl-2 text-ui", online && "visually-hidden")} role="status" title={machine.error ?? undefined}>
+      <span className={machine.state === "error" ? "text-destructive" : "text-muted-foreground"}>{t(STATE_WORD[machine.state])}</span>
+      {machine.error && <span className="line-clamp-2 break-all text-muted-foreground/60">{machine.error}</span>}
     </p>}
     {editing && <div className="machine-controls">
       <form onSubmit={(e) => { e.preventDefault(); void mutate("PATCH", { name }); }}><label className="field"><span className="field-label">{t("PC name")}</span><input className="input" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></label><button className="btn" type="submit">{t("Rename")}</button></form>
@@ -138,8 +142,8 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
       {confirmDelete && <p className="field-hint">{t("Removes this registration. Remote sessions keep running.")}</p>}
     </div>}
     {error && <p className="machine-error" role="alert">{error}</p>}
-    {!collapsed && <div className={online ? "" : "machine-offline"} inert={!online}>
-      {!online && !machine.snapshot ? <p className="tree-state machine-empty" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} actions={actions} /></MachineContext.Provider>}
+    {!collapsed && <div className={cn("flex flex-col gap-px", !online && "opacity-50")} inert={!online}>
+      {!online && !machine.snapshot ? <p className="px-2 py-2 text-ui text-muted-foreground" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} actions={actions} /></MachineContext.Provider>}
     </div>}
   </section>;
 }

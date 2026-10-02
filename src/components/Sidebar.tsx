@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, Folder, GripVertical, Layers, Pencil, Terminal, X } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { Layers, Pencil, X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import "./Sidebar.css";
 
 import type { PaneInfo, SessionSnapshot, WorkspaceInfo, HerdrPane } from "../../shared/protocol.ts";
 import { paneTitle } from "../../shared/notify-policy.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import type { AppActions } from "../lib/actions.ts";
-import { StatusMark, StatusRail, WorkingOrb } from "./StatusMark.tsx";
-import { AgentMark } from "./AgentMark.tsx";
-import { folderName, placeLine, shortPathTitle } from "../lib/paneName.ts";
+import { WorkingOrb } from "./StatusMark.tsx";
+import { GroupSpacer, HeadingRow, ROW_INPUT, RowAction, SessionRow, SIDEBAR_EMPTY } from "./SidebarRows.tsx";
+import { folderName, shortPathTitle } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
 import { groupDirectories } from "../lib/directoryGroups.ts";
 import { useSettings, type SidebarGrouping } from "../lib/settings.ts";
@@ -140,6 +142,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
     if (unfoldedFor.current[settings.sidebarGrouping] === opened) return;
     unfoldedFor.current[settings.sidebarGrouping] = opened;
     setGroupCollapsed(groupKey, false);
+    setGroupCollapsed(`workspace:${pane.workspace_id}`, false);
   }, [selectedPaneId, snapshot, machineId, settings.sidebarGrouping, byFolder]);
 
   const orderedWorkspaces = useMemo(() => {
@@ -148,11 +151,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
     return workspaceOrder.map((id) => byId.get(id)).filter((workspace): workspace is WorkspaceInfo => workspace !== undefined);
   }, [snapshot, workspaceOrder]);
   const directories = useMemo(() => groupDirectories(orderedWorkspaces, snapshot?.panes ?? []), [orderedWorkspaces, snapshot?.panes]);
-  const workspacePaneCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const pane of snapshot?.panes ?? []) counts.set(pane.workspace_id, (counts.get(pane.workspace_id) ?? 0) + 1);
-    return counts;
-  }, [snapshot?.panes]);
 
   const noteError = (message: string, paneId?: string): void => setInlineError({ message, paneId });
 
@@ -233,36 +231,90 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
     reorderWorkspace(sourceId, workspaceOrder.indexOf(targetWorkspaceId));
   };
 
-  const onHandleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, workspaceId: string): void => {
+  const errorFor = (message: string) => <p className="pl-2 text-ui break-words text-destructive" role="alert">{message}</p>;
+
+  const reorderKeys = (workspaceId: string) => (event: KeyboardEvent<HTMLElement>): void => {
     if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
     event.preventDefault();
     const current = workspaceOrder.indexOf(workspaceId);
     reorderWorkspace(workspaceId, current + (event.key === "ArrowUp" ? -1 : 1));
   };
 
-  const dragHandle = (workspace: WorkspaceInfo, draggable: boolean) => (
-    <button
-      type="button"
-      className="sidebar-drag-handle"
-      aria-label={t("Reorder workspace {name}", { name: workspace.label })}
-      title={t("Drag to reorder · Alt+↑/↓")}
-      draggable={draggable}
-      onDragStart={(event) => onDragStart(event, workspace.workspace_id)}
-      onDragEnd={() => setDragWorkspaceId(null)}
-      onKeyDown={(event) => onHandleKeyDown(event, workspace.workspace_id)}
-    >
-      <GripVertical aria-hidden="true" />
-    </button>
+  const dragProps = (workspaceId: string) => ({
+    draggable: true,
+    onDragStart: (event: DragEvent<HTMLElement>) => onDragStart(event, workspaceId),
+    onDragEnd: () => setDragWorkspaceId(null),
+    onKeyDown: reorderKeys(workspaceId),
+  });
+
+  const renameField = (value: string, label: string, onChange: (value: string) => void, onSave: () => void, onCancel: () => void) => (
+    <input
+      data-slot="input"
+      className={ROW_INPUT}
+      aria-label={label}
+      autoFocus
+      value={value}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onCancel}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") onSave();
+        if (event.key === "Escape") onCancel();
+      }}
+    />
   );
+
+  const closeActions = (paneId: string, displayTitle: string) => armedId === paneId ? (
+    <>
+      <Button size="xs" variant="destructive" className="pane-close is-armed cursor-pointer text-ui" aria-label={t("Confirm close {title}", { title: displayTitle })} onClick={(event) => { event.stopPropagation(); closePaneClick(paneId); }} onKeyDown={(event) => event.stopPropagation()}>{t("Close")}</Button>
+      <RowAction label={t("Cancel")} onClick={() => setArmedId(null)}><X /></RowAction>
+    </>
+  ) : (
+    <RowAction label={t("Close {title}", { title: displayTitle })} onClick={() => closePaneClick(paneId)}><X /></RowAction>
+  );
+
+  const paneRow = (workspace: WorkspaceInfo, pane: PaneInfo, depth: number, continues: boolean, scope: string) => {
+    const displayTitle = displayPaneTitle(pane);
+    const selected = pane.pane_id === selectedPaneId;
+    const editing = editingPaneId === pane.pane_id;
+    return (
+      <Fragment key={`${scope}\u0000${pane.pane_id}`}>
+        <SessionRow
+          className={selected ? "pane-select is-selected" : "pane-select"}
+          active={selected}
+          status={pane.agent_status}
+          depth={depth}
+          continues={continues}
+          open={editing || armedId === pane.pane_id}
+          aria-label={`${displayTitle}, ${pane.agent ?? t("Shell")}`}
+          title={editing ? renameField(paneLabel, t("Pane name"), setPaneLabel, () => savePaneRename(pane.pane_id), () => setEditingPaneId(null)) : displayTitle}
+          meta={<>
+            {pane.restore_error && <RestoreErrorBadge reason={pane.restore_error} />}
+            <BackgroundBadge count={(pane as HerdrPane).background_tasks} />
+            <WorkingOrb status={pane.agent_status} />
+          </>}
+          actions={editing ? undefined : <>
+            {armedId !== pane.pane_id && <RowAction label={t("Rename {title}", { title: displayTitle })} onClick={() => beginPaneRename(pane)}><Pencil /></RowAction>}
+            {closeActions(pane.pane_id, displayTitle)}
+          </>}
+          onSelect={() => actions.selectPane(pane.pane_id)}
+          {...(depth === 0 ? dragProps(workspace.workspace_id) : {})}
+        />
+        {inlineError?.paneId === pane.pane_id && errorFor(inlineError.message)}
+      </Fragment>
+    );
+  };
 
   const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "") => {
     if (visiblePanes.length === 0) return null;
-    const merged = byFolder && (workspacePaneCounts.get(workspace.workspace_id) ?? visiblePanes.length) === 1;
     const groupKey = `workspace:${workspace.workspace_id}`;
-    const collapsed = !byFolder && collapsedGroups.has(groupKey);
+    const collapsed = collapsedGroups.has(groupKey);
+    const editing = editingWorkspaceId === `${scope}\u0000${workspace.workspace_id}`;
+    const single = visiblePanes.length === 1;
     return (
-      <section
-        className={`workspace${dragWorkspaceId === workspace.workspace_id ? " is-dragging" : ""}${collapsed ? " is-collapsed" : ""}`}
+      <div
+        className={cn("workspace flex flex-col gap-px", dragWorkspaceId === workspace.workspace_id && "opacity-50")}
         key={workspace.workspace_id}
         onDragOver={(event) => {
           event.preventDefault();
@@ -270,150 +322,59 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
         }}
         onDrop={(event) => onDrop(event, workspace.workspace_id)}
       >
-        {!merged && (
-          <header
-            className="workspace-header"
-            draggable
-            onDragStart={(event) => onDragStart(event, workspace.workspace_id)}
-            onDragEnd={() => setDragWorkspaceId(null)}
-          >
-            {dragHandle(workspace, false)}
-            {!byFolder && <button type="button" className="workspace-toggle" aria-expanded={!collapsed} aria-label={collapsed ? t("Expand workspace {name}", { name: workspace.label }) : t("Collapse workspace {name}", { name: workspace.label })} title={collapsed ? t("Show panes") : t("Hide panes")} onClick={(event) => { event.stopPropagation(); setGroupCollapsed(groupKey, !collapsed); }}>
-              {collapsed ? <ChevronRight aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-            </button>}
-            <span className="workspace-number">{workspace.number}</span>
-            {editingWorkspaceId === `${scope}\u0000${workspace.workspace_id}` ? (
-              <input
-                className="input workspace-rename-input"
-                aria-label={t("Workspace name")}
-                autoFocus
-                value={workspaceLabel}
-                onChange={(event) => setWorkspaceLabel(event.target.value)}
-                onBlur={() => setEditingWorkspaceId(null)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") saveWorkspaceRename(workspace.workspace_id);
-                  if (event.key === "Escape") setEditingWorkspaceId(null);
-                }}
-              />
-            ) : (
-              <span className="workspace-label" title={workspace.label} onDoubleClick={() => beginWorkspaceRename(workspace, scope)}>
-                {workspace.label}
-              </span>
-            )}
-            <StatusMark status={workspace.agent_status} />
-            <button type="button" className="sidebar-row-action workspace-rename" aria-label={t("Rename workspace {name}", { name: workspace.label })} onClick={() => beginWorkspaceRename(workspace, scope)}>
-              <Pencil aria-hidden="true" />
-            </button>
-          </header>
+        {single ? paneRow(workspace, visiblePanes[0]!, 0, false, scope) : (
+          <>
+            <SessionRow
+              className="workspace-header"
+              active={false}
+              status={collapsed ? workspace.agent_status : undefined}
+              opensRail={!collapsed}
+              open={editing}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? t("Expand workspace {name}", { name: workspace.label }) : t("Collapse workspace {name}", { name: workspace.label })}
+              title={editing ? renameField(workspaceLabel, t("Workspace name"), setWorkspaceLabel, () => saveWorkspaceRename(workspace.workspace_id), () => setEditingWorkspaceId(null)) : workspace.label}
+              meta={collapsed ? <WorkingOrb status={workspace.agent_status} /> : undefined}
+              actions={editing ? undefined : <RowAction label={t("Rename workspace {name}", { name: workspace.label })} onClick={() => beginWorkspaceRename(workspace, scope)}><Pencil /></RowAction>}
+              onSelect={() => setGroupCollapsed(groupKey, !collapsed)}
+              {...dragProps(workspace.workspace_id)}
+            />
+            {!collapsed && visiblePanes.map((pane, index) => paneRow(workspace, pane, 1, index < visiblePanes.length - 1, scope))}
+          </>
         )}
+      </div>
+    );
+  };
 
-        {!collapsed && <ul className="pane-list">
-          {visiblePanes.map((pane) => {
-            const fullTitle = paneTitle(pane);
-            const displayTitle = displayPaneTitle(pane);
-            const selected = pane.pane_id === selectedPaneId;
-            const editing = editingPaneId === pane.pane_id;
-            return (
-              <li className={`pane-item${selected ? " is-selected" : ""}`} key={pane.pane_id}>
-                <div className="pane-row">
-                  {merged && dragHandle(workspace, true)}
-                  <div
-                    className="pane-select"
-                    role="button"
-                    tabIndex={0}
-                    aria-current={selected ? "true" : undefined}
-                    title={`${pane.pane_id} · ${fullTitle}${pane.cwd ? ` · ${pane.cwd}` : ""}`}
-                    onClick={() => actions.selectPane(pane.pane_id)}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      actions.selectPane(pane.pane_id);
-                    }}
-                  >
-                    <StatusRail status={pane.agent_status} />
-                    <span className={`agent-mark-holder${pane.agent ? "" : " is-shell"}`} title={pane.agent ?? t("Shell")}>
-                      {pane.agent ? <AgentMark agent={pane.agent} size={22} /> : <Terminal aria-hidden="true" />}
-                    </span>
-                    <span className="pane-copy">
-                      <span className="pane-primary">
-                        {editing ? (
-                          <input
-                            className="input pane-rename-input"
-                            aria-label={t("Pane name")}
-                            autoFocus
-                            value={paneLabel}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) => setPaneLabel(event.target.value)}
-                            onBlur={() => setEditingPaneId(null)}
-                            onKeyDown={(event) => {
-                              event.stopPropagation();
-                              if (event.key === "Enter") savePaneRename(pane.pane_id);
-                              if (event.key === "Escape") setEditingPaneId(null);
-                            }}
-                          />
-                        ) : (
-                          <span className="pane-title">{displayTitle}</span>
-                        )}
-                        <span className="ml-auto flex shrink-0 items-center"><WorkingOrb status={pane.agent_status} /></span>
-                      </span>
-                      <span className="pane-meta">
-                        {pane.restore_error && <RestoreErrorBadge reason={pane.restore_error} />}
-                        <BackgroundBadge count={(pane as HerdrPane).background_tasks} />
-                        <span className="pane-subtitle">{byFolder ? workspace.label : placeLine(workspace.label, cwdBasename(pane.cwd))}</span>
-                      </span>
-                    </span>
-                  </div>
-                  <div className="pane-actions">
-                    <button type="button" className="sidebar-row-action" aria-label={t("Rename {title}", { title: displayTitle })} title={t("Rename pane")} onClick={() => beginPaneRename(pane)}>
-                      <Pencil aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className={`sidebar-row-action pane-close${armedId === pane.pane_id ? " is-armed" : ""}`}
-                      aria-label={armedId === pane.pane_id ? t("Confirm close {title}", { title: displayTitle }) : t("Close {title}", { title: displayTitle })}
-                      title={armedId === pane.pane_id ? t("Click again to close") : t("Close pane")}
-                      onClick={() => closePaneClick(pane.pane_id)}
-                    >
-                      {armedId === pane.pane_id ? <span>{t("sure?")}</span> : <X aria-hidden="true" />}
-                    </button>
-                  </div>
-                </div>
-                {inlineError?.paneId === pane.pane_id && <p className="sidebar-inline-error" role="alert">{inlineError.message}</p>}
-              </li>
-            );
-          })}
-        </ul>}
-      </section>
+  const renderDirectory = (directory: (typeof directories)[number], index: number) => {
+    const groupKey = `folder:${directory.key}`;
+    const collapsed = collapsedGroups.has(groupKey);
+    const name = directory.path ? cwdBasename(directory.path) : directory.workspaces[0]?.workspace.label ?? "";
+    const full = directory.path ?? name;
+    return (
+      <Fragment key={directory.key}>
+        {index > 0 && <GroupSpacer />}
+        <div className="directory-group flex flex-col gap-px" data-directory={directory.path ?? directory.key}>
+          <HeadingRow
+            className="directory-header"
+            label={name}
+            expanded={!collapsed}
+            toggleLabel={collapsed ? t("Expand folder {name}", { name: full }) : t("Collapse folder {name}", { name: full })}
+            onToggle={() => setGroupCollapsed(groupKey, !collapsed)}
+          />
+          {!collapsed && directory.workspaces.map(({ workspace, panes: visiblePanes }) => renderWorkspace(workspace, visiblePanes, directory.key))}
+        </div>
+      </Fragment>
     );
   };
 
   return (
-    <div className="machine-workspaces">
-      <nav className="sidebar-list" aria-label={t("Herdr workspaces")}>
-        {!snapshot && <p className="tree-state" role="status">{t("Loading workspaces…")}</p>}
-        {snapshot && snapshot.workspaces.length === 0 && (
-          <p className="tree-state tree-state-empty" role="status">{t("No workspaces yet")}</p>
-        )}
-        {byFolder ? directories.map((directory) => {
-          const collapsed = collapsedGroups.has(`folder:${directory.key}`);
-          const name = directory.path ? cwdBasename(directory.path) : directory.workspaces[0]?.workspace.label;
-          return <section className={`directory-group${collapsed ? " is-collapsed" : ""}`} key={directory.key} data-directory={directory.path ?? directory.key}>
-            <button type="button" className="directory-header" aria-expanded={!collapsed} aria-label={collapsed ? t("Expand folder {name}", { name: directory.path ?? name ?? "" }) : t("Collapse folder {name}", { name: directory.path ?? name ?? "" })} title={directory.path ?? name} onClick={() => setGroupCollapsed(`folder:${directory.key}`, !collapsed)}>
-              {collapsed ? <ChevronRight aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-              <Folder aria-hidden="true" />
-              <span className="directory-copy"><span className="directory-name">{name}</span>{directory.path && <span className="directory-path">{directory.path}</span>}</span>
-              <span className="workspace-number">{directory.paneCount}</span>
-            </button>
-            {!collapsed && <div className="directory-contents">{directory.workspaces.map(({ workspace, panes: visiblePanes }) => {
-              return renderWorkspace(workspace, visiblePanes, directory.key);
-        })}</div>}
-          </section>;
-        }) : orderedWorkspaces.map((workspace) => renderWorkspace(workspace, snapshot?.panes.filter((pane) => pane.workspace_id === workspace.workspace_id) ?? []))}
-        {inlineError && inlineError.paneId === undefined && (
-          <p className="sidebar-inline-error" role="alert">{inlineError.message}</p>
-        )}
-      </nav>
-
-    </div>
+    <nav className="flex flex-col gap-px" aria-label={t("Herdr workspaces")}>
+      {!snapshot && <p className={SIDEBAR_EMPTY} role="status">{t("Loading workspaces…")}</p>}
+      {snapshot && snapshot.workspaces.length === 0 && <p className={SIDEBAR_EMPTY} role="status">{t("No workspaces yet")}</p>}
+      {byFolder
+        ? directories.map(renderDirectory)
+        : orderedWorkspaces.map((workspace) => renderWorkspace(workspace, snapshot?.panes.filter((pane) => pane.workspace_id === workspace.workspace_id) ?? []))}
+      {inlineError && inlineError.paneId === undefined && errorFor(inlineError.message)}
+    </nav>
   );
 }
