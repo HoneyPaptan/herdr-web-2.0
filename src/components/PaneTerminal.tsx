@@ -21,9 +21,10 @@ import { KeyBar } from "./KeyBar.tsx";
 import { TerminalInput } from "./TerminalInput.tsx";
 import { SecretInput } from "./SecretInput.tsx";
 import { secretPrompt } from "../../shared/secret-prompt.ts";
-import { ChatView } from "./ChatView.tsx";
+import { CHAT_EMPTY, ChatView } from "./ChatView.tsx";
 import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
+import { Button } from "@/components/ui/button";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
 import { useSettings, type Palette, type ResolvedTheme } from "../lib/settings.ts";
@@ -1118,9 +1119,9 @@ export function PaneTerminal({
         <div className={`pane-terminal${paneId === null ? " is-idle" : ""}`} ref={hostRef} />
         {paneId !== null && chatView && (
           <RenderBoundary resetKey={paneId} fallback={(retry) => (
-            <div className="chat-view absolute inset-0 z-1 overflow-y-auto bg-background px-4 pt-6 pb-5"><div className="chat-empty" role="alert">
-              <p>{t("The chat can't be shown. The terminal still works.")}</p>
-              <button type="button" className="btn" onClick={retry}>{t("Try again")}</button>
+            <div className="chat-view absolute inset-0 z-1 overflow-y-auto bg-background px-4 pt-6 pb-5"><div className={CHAT_EMPTY} role="alert">
+              <p className="m-0 text-ui">{t("The chat can't be shown. The terminal still works.")}</p>
+              <Button variant="outline" size="sm" onClick={retry}>{t("Try again")}</Button>
             </div></div>
           )}>
           <ChatView

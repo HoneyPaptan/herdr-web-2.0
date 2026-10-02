@@ -17,14 +17,6 @@
   --fs-chat: var(--chat-fs-md);
 }
 
-.chat-terminal-fallback {
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-.chat-terminal-fallback summary { cursor: pointer; }
-.chat-terminal-fallback pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-
 .markdown-code-copy svg {
   width: var(--fs-sm);
   height: var(--fs-sm);
@@ -213,63 +205,6 @@
 .chat-checklist li.is-active .chat-checklist-box { color: var(--status-working); }
 .chat-checklist-phase { margin-top: var(--space-2); color: var(--text-dim); font-weight: var(--fw-semibold); }
 
-/* the top of what is loaded: the way to the page before it */
-.chat-older {
-  align-self: center;
-  min-height: var(--control-h);
-  color: var(--text-dim);
-  font-size: var(--fs-xs);
-}
-
-.chat-inline-state,
-.chat-endcap {
-  align-self: center;
-  margin: 0;
-  color: var(--text-dim);
-  font-size: var(--fs-xs);
-}
-
-.chat-inline-error { color: var(--status-blocked); }
-
-.chat-endcap {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.chat-endcap::before,
-.chat-endcap::after {
-  content: "";
-  flex: 1 1 auto;
-  border-top: var(--hairline-w) solid var(--border);
-}
-
-.chat-empty {
-  flex: 1 1 auto;
-  min-height: calc(var(--row-h) * 4);
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-3);
-  color: var(--text-dim);
-  text-align: center;
-}
-
-.chat-empty p { margin: 0; font-size: var(--fs-sm); }
-
-.chat-new-messages {
-  position: sticky;
-  z-index: var(--z-popover);
-  bottom: var(--space-2);
-  left: 50%;
-  min-height: var(--control-h);
-  transform: translateX(-50%);
-  box-shadow: var(--shadow-pop);
-}
-
-.chat-new-messages svg { width: var(--icon-size); height: var(--icon-size); }
-
 /* chat mode is ONE surface: the stack, the transcript and the composer region all sit on
    --bg; the only card is the composer's input box, on the same column as the transcript */
 .terminal-stack.is-chat {
@@ -383,21 +318,6 @@
   text-decoration-style: solid;
 }
 
-/* the way back to the end while reading up: the pill's round, wordless form */
-.chat-new-messages.is-icon {
-  width: var(--control-h);
-  padding: 0;
-  justify-content: center;
-  border-radius: 999px;
-}
-
-@media (pointer: coarse) {
-  .chat-new-messages.is-icon {
-    width: var(--touch-target);
-    min-height: var(--touch-target);
-  }
-}
-
 /* images the user sent: thumbnails above their bubble, opened full size on a tap */
 .chat-user-images {
   display: flex;
@@ -423,50 +343,6 @@
   width: min(9rem, 38vw);
   height: 7rem;
   object-fit: cover;
-}
-
-/* where a compaction folded the conversation: a quiet divider, its summary on request */
-.chat-compact {
-  margin: var(--space-4) 0;
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-.chat-compact > summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  list-style: none;
-}
-
-.chat-compact > summary::before,
-.chat-compact > summary::after {
-  content: "";
-  flex: 1 1 auto;
-  border-top: var(--hairline-w) solid var(--border);
-}
-
-.chat-compact > summary::-webkit-details-marker {
-  display: none;
-}
-
-.chat-compact-text {
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-/* a runtime notice is job output, not prose: verbatim, wrapped, and bounded like a whole tool output */
-.chat-notice-text {
-  margin-bottom: 0;
-  max-height: 60vh;
-  overflow: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 /* Skills remain discoverable when the work rows are folded. */
@@ -538,9 +414,3 @@
 /* under the message that invoked it, on the message's side */
 .chat-turn-user .chat-skills { justify-content: flex-end; margin: 0; }
 
-/* pi moved its leaf and wrote nothing: the turns above are not all the file holds, and this is
-   the only place that can say so. Read-only, so it is quieter than a compaction, which changed
-   what the agent answers from. */
-.chat-abandoned { margin: var(--space-2) 0; }
-.chat-abandoned > summary { font-style: italic; }
-.chat-abandoned-note { margin: var(--space-2) 0 0; color: var(--text-dim); }

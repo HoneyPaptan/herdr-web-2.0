@@ -243,6 +243,23 @@ function ToolImages({ paneId, part }: { paneId: string; part: ToolPartType }) {
 
 const ROW_CHEVRON = "size-3 shrink-0 text-muted-foreground transition-all";
 
+const EVENT = "group/event";
+const EVENT_SUMMARY = "flex w-full cursor-pointer list-none items-center gap-2 text-chat pointer-coarse:min-h-9 [&::-webkit-details-marker]:hidden";
+const EVENT_LABEL = "shrink-0 text-foreground/80";
+const EVENT_DETAIL = "mt-1.5 text-chat text-muted-foreground";
+export const CHAT_EMPTY = "chat-empty flex min-h-32 flex-1 flex-col items-center justify-center gap-3 text-center text-muted-foreground";
+const JUMP = "sticky bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border-border shadow-sm";
+const STATE_LINE = "chat-inline-state m-0 self-center text-ui text-muted-foreground";
+const ENDCAP = "chat-endcap m-0 self-center text-ui text-muted-foreground/60";
+
+function EventChevron() {
+  return <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground opacity-0 transition-all group-hover/event:opacity-100 group-open/event:rotate-90 group-open/event:opacity-100" />;
+}
+
+function EventTime({ ts, time }: { ts: string | null; time: string | null }) {
+  return time === null ? null : <time className="min-w-0 truncate text-muted-foreground" dateTime={ts ?? undefined}>{time}</time>;
+}
+
 function RowChevron({ open, group }: { open: boolean; group: "tool" | "think" | "turn" }) {
   const hover = { tool: "group-hover/tool:opacity-100", think: "group-hover/think:opacity-100", turn: "group-hover/turn:opacity-100" }[group];
   return <ChevronRight aria-hidden="true" className={cn(ROW_CHEVRON, open ? "rotate-90 opacity-100" : cn("opacity-0", hover))} />;
@@ -378,16 +395,16 @@ const Turn = memo(function Turn({ paneId, turn, live, last, showThinking }: Turn
   const time = formatTime(turn.ts);
   const compact = turn.parts.find((part): part is Extract<ConversationPart, { kind: "compact" }> => part.kind === "compact");
   if (compact !== undefined) {
-    return <details className="chat-compact">
-      <summary>{t("Conversation compacted")}{time !== null && <> · <time dateTime={turn.ts ?? undefined}>{time}</time></>}</summary>
-      <div className="chat-compact-text"><Markdown>{compact.text}</Markdown></div>
+    return <details className={cn("chat-compact", EVENT)}>
+      <summary className={EVENT_SUMMARY}><span className={EVENT_LABEL}>{t("Conversation compacted")}</span><EventTime ts={turn.ts} time={time} /><EventChevron /></summary>
+      <div className={EVENT_DETAIL}><Markdown>{compact.text}</Markdown></div>
     </details>;
   }
   const notice = turn.parts.find((part): part is Extract<ConversationPart, { kind: "notice" }> => part.kind === "notice");
   if (notice !== undefined) {
-    return <details className="chat-compact chat-notice">
-      <summary>{t("Background result delivered")}{time !== null && <> · <time dateTime={turn.ts ?? undefined}>{time}</time></>}</summary>
-      <pre className="chat-compact-text chat-notice-text">{notice.text}</pre>
+    return <details className={cn("chat-compact chat-notice", EVENT)}>
+      <summary className={EVENT_SUMMARY}><span className={EVENT_LABEL}>{t("Background result delivered")}</span><EventTime ts={turn.ts} time={time} /><EventChevron /></summary>
+      <pre className={cn(TOOL_PRE, "mt-1.5 max-h-[60vh]")}>{notice.text}</pre>
     </details>;
   }
   if (turn.role === "user") {
@@ -685,45 +702,45 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
   return <ChatPaneContext.Provider value={paneId}><ChatHistoryContext.Provider value={historyId ?? ""}><div className="chat-view absolute inset-0 z-1 overflow-y-auto bg-background px-4 pt-6 pb-5 md:px-6" ref={scroller} onScroll={onScroll} role="log" aria-live="polite" aria-label={t("conversation of {pane}", { pane: paneId })}>
     <div className="chat-transcript mx-auto flex min-h-full w-[min(100%,var(--content-w))] flex-col gap-4 [font-family:var(--font-chat,var(--font-ui))] text-chat">
       {state.source === "conversation" && abandoned !== null && abandoned.count > 0 && (
-        <details className="chat-compact chat-abandoned">
-          <summary>{t(abandoned.branches > 1
+        <details className={cn("chat-compact chat-abandoned", EVENT)}>
+          <summary className={EVENT_SUMMARY}><span className={cn(EVENT_LABEL, "min-w-0 shrink")}>{t(abandoned.branches > 1
             ? abandoned.count === 1 ? "{n} earlier turn on {b} branches you navigated away from" : "{n} earlier turns on {b} branches you navigated away from"
             : abandoned.count === 1 ? "{n} earlier turn on a branch you navigated away from" : "{n} earlier turns on a branch you navigated away from",
-            { n: abandoned.count, b: abandoned.branches })}</summary>
+            { n: abandoned.count, b: abandoned.branches })}</span><EventChevron /></summary>
           {abandoned.summary !== null
-            ? <div className="chat-compact-text"><Markdown>{abandoned.summary}</Markdown></div>
-            : <p className="chat-abandoned-note">{t("pi kept them in the session file but answers from the branch you chose. Use /tree in the terminal to go back.")}</p>}
+            ? <div className={EVENT_DETAIL}><Markdown>{abandoned.summary}</Markdown></div>
+            : <p className={cn(EVENT_DETAIL, "m-0 mt-1.5")}>{t("pi kept them in the session file but answers from the branch you chose. Use /tree in the terminal to go back.")}</p>}
         </details>
       )}
       {state.source === "conversation" && typeof olderCursor === "string" && (
-        <button type="button" className="btn btn-ghost chat-older" disabled={olderState === "loading"} onClick={() => void loadOlder()}>
-          {t(olderState === "loading" ? "Loading earlier messages…" : olderState === "failed" ? "Couldn't load earlier messages — retry" : "Earlier messages")}
-        </button>
+        <Button variant="ghost" size="sm" className="chat-older self-center text-ui text-muted-foreground" disabled={olderState === "loading"} onClick={() => void loadOlder()}>
+          {t(olderState === "loading" ? "Loading earlier messages…" : olderState === "failed" ? "Couldn't load earlier messages. Retry" : "Earlier messages")}
+        </Button>
       )}
-      {state.source === "conversation" && olderCursor === null && older.length > 0 && <p className="chat-endcap">{t("beginning of conversation")}</p>}
+      {state.source === "conversation" && olderCursor === null && older.length > 0 && <p className={ENDCAP}>{t("beginning of conversation")}</p>}
       {state.source === "conversation"
         ? turns.map((turn, index) => {
             const last = index === turns.length - 1;
-            return <RenderBoundary key={`${paneId}:${historyId ?? ""}:${turn.role}:${turn.ts ?? index}`} resetKey={turnRevision(turn)} fallback={() => <p className="chat-inline-state chat-inline-error">{t("This message can't be shown here. The terminal has it.")}</p>}>
+            return <RenderBoundary key={`${paneId}:${historyId ?? ""}:${turn.role}:${turn.ts ?? index}`} resetKey={turnRevision(turn)} fallback={() => <p className={cn(STATE_LINE, "text-destructive")}>{t("This message can't be shown here. The terminal has it.")}</p>}>
               <Turn paneId={paneId} turn={turn} live={isLiveWorkTurn(turn, last, agentStatus, finishedBeforeSend)} last={last} showThinking={settings.showThinking} />
             </RenderBoundary>;
           })
         : agent !== null
-          ? <details className="chat-terminal-fallback"><summary>{t("Conversation unavailable — show terminal output")}</summary><pre>{state.messages.map((message) => message.text).join("\n\n")}</pre></details>
+          ? <details className="chat-terminal-fallback text-ui text-muted-foreground"><summary className="cursor-pointer">{t("Conversation unavailable. Show terminal output")}</summary><pre className={INNER_PRE}>{state.messages.map((message) => message.text).join("\n\n")}</pre></details>
           : state.messages.map((message, index) => <FallbackTurn key={index} paneId={paneId} message={message} />)}
-      {!ended && !connected && <p className="chat-inline-state">{t("reconnecting…")}</p>}
-      {error !== null && <p className="chat-inline-state chat-inline-error" role="alert">{errorStatus === 401 ? "locked — the token gate is asking again" : error}</p>}
-      {!loaded && error === null && <p className="chat-inline-state" role="status">{t("Loading conversation…")}</p>}
-      {loaded && empty && error === null && prompt === null && <div className="chat-empty"><AgentMark agent={agent ?? "agent"} size={32} /><p>{t("No conversation yet — say something below")}</p></div>}
+      {!ended && !connected && <p className={STATE_LINE}>{t("reconnecting…")}</p>}
+      {error !== null && <p className={cn(STATE_LINE, "text-destructive")} role="alert">{errorStatus === 401 ? t("Locked: the token gate is asking again") : error}</p>}
+      {!loaded && error === null && <p className={STATE_LINE} role="status">{t("Loading conversation…")}</p>}
+      {loaded && empty && error === null && prompt === null && <div className={CHAT_EMPTY}><AgentMark agent={agent ?? "agent"} size={32} /><p className="m-0 text-ui">{t("No conversation yet. Say something below")}</p></div>}
       {prompt !== null && <PromptCard paneId={paneId} prompt={prompt} typedAnswer={pendingAnswer?.promptId === prompt.id ? pendingAnswer.answer : null} onTypedAnswerDone={onPendingAnswerDone} onPromptChanged={() => setPromptPollKey((key) => key + 1)} onAnswered={() => {
         setPrompt(null);
         if (prompt.steps) setPromptPollKey((key) => key + 1);
         onPendingAnswerDone?.();
       }} />}
-      {ended && <p className="chat-endcap">{t("terminal ended")}</p>}
+      {ended && <p className={ENDCAP}>{t("terminal ended")}</p>}
     </div>
-    {newMessages ? <button type="button" className="btn chat-new-messages" onClick={scrollToBottom}>{t("New messages")} <ArrowDown aria-hidden="true" /></button>
-      : away && <button type="button" className="btn chat-new-messages is-icon" aria-label={t("Jump to latest")} title={t("Jump to latest")} onClick={scrollToBottom}><ArrowDown aria-hidden="true" /></button>}
+    {newMessages ? <Button variant="secondary" size="sm" className={cn(JUMP, "chat-new-messages px-3 pointer-coarse:h-10")} onClick={scrollToBottom}>{t("New messages")} <ArrowDown aria-hidden="true" /></Button>
+      : away && <Button variant="secondary" size="icon-sm" className={cn(JUMP, "chat-new-messages pointer-coarse:size-10")} aria-label={t("Jump to latest")} onClick={scrollToBottom}><ArrowDown aria-hidden="true" /></Button>}
   </div>
   </ChatHistoryContext.Provider></ChatPaneContext.Provider>;
 });
