@@ -1118,7 +1118,7 @@ export function PaneTerminal({
         <div className={`pane-terminal${paneId === null ? " is-idle" : ""}`} ref={hostRef} />
         {paneId !== null && chatView && (
           <RenderBoundary resetKey={paneId} fallback={(retry) => (
-            <div className="chat-view"><div className="chat-empty" role="alert">
+            <div className="chat-view absolute inset-0 z-1 overflow-y-auto bg-background px-4 pt-6 pb-5"><div className="chat-empty" role="alert">
               <p>{t("The chat can't be shown. The terminal still works.")}</p>
               <button type="button" className="btn" onClick={retry}>{t("Try again")}</button>
             </div></div>

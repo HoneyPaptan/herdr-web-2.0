@@ -1,22 +1,4 @@
-/*
- * The chat lens, in the Codex / gajae-code-app register: the transcript is a quiet
- * document. The user's words are the only raised block, right-aligned; the agent
- * answers as plain prose with no avatar or name (the composer's status line already
- * names it), and everything it did in between folds under one "Worked for 7s · 1 edit"
- * line whose rows stay one line each until opened. Meta (time, copy) is low-emphasis
- * and fades in on hover.
- */
-
-/* The chat's text has its own size (Settings → Chat font size): the view scales the type
-   tokens by --chat-scale (lib/settings.ts) and the transcript uses the scaled ones under
-   the same names, so every message, code block and prompt card grows together */
 .chat-view {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow-y: auto;
-  padding: var(--space-4) var(--space-4) var(--space-5);
-  background: var(--bg);
   --chat-fs-2xs: calc(var(--fs-2xs) * var(--chat-scale, 1));
   --chat-fs-xs: calc(var(--fs-xs) * var(--chat-scale, 1));
   --chat-fs-sm: calc(var(--fs-sm) * var(--chat-scale, 1));
@@ -32,25 +14,7 @@
   --fs-md: var(--chat-fs-md);
   --fs-lg: var(--chat-fs-lg);
   --fs-xl: var(--chat-fs-xl);
-  width: min(100%, var(--content-w));
-  min-height: 100%;
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  /* Settings -> Chat font (lib/settings.ts): the prose only; code, work rows and paths keep --font-mono */
-  font-family: var(--font-chat, var(--font-ui));
-  font-size: var(--fs-md);
-}
-
-.chat-turn {
-  width: 100%;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 160px;
-}
-
-.chat-turn :focus-visible {
-  outline-offset: -2px;
+  --fs-chat: var(--chat-fs-md);
 }
 
 .chat-terminal-fallback {
@@ -61,99 +25,9 @@
 .chat-terminal-fallback summary { cursor: pointer; }
 .chat-terminal-fallback pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* a user turn opens a new exchange: a hairline separates it from the answer above */
-.chat-turn-user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
-  padding-top: var(--space-4);
-  border-top: var(--hairline-w) solid var(--border);
-}
-
-.chat-turn-user:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-/* the user's turn is a raised neutral card, not a colored one: amber stays reserved for
-   selection and the send action, so a long thread does not turn into a wall of color */
-.chat-bubble {
-  max-width: 80%;
-  padding: var(--space-3) var(--space-4);
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
-  background: var(--bg-elevated);
-  color: var(--text-strong);
-  overflow-wrap: anywhere;
-}
-
-/* meta rows fade in on hover / focus: the transcript reads as text, not as controls */
-.chat-turn-meta {
-  min-height: var(--chip-h);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--text-dim);
-  font-size: var(--fs-2xs);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
-}
-
-.chat-turn:hover .chat-turn-meta,
-.chat-turn:focus-within .chat-turn-meta {
-  opacity: 1;
-}
-
-.chat-copy {
-  width: var(--chip-h);
-  height: var(--chip-h);
-  min-width: var(--chip-h);
-}
-
-.chat-copy svg,
-.chat-meta-btn svg,
 .markdown-code-copy svg {
   width: var(--fs-sm);
   height: var(--fs-sm);
-}
-
-.chat-turn-agent {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  color: var(--text);
-}
-
-.chat-agent-meta {
-  gap: var(--space-2);
-}
-
-.chat-agent-meta time {
-  margin-left: var(--space-1);
-}
-
-/* "MD" / "TXT": a copy glyph and a two-letter format, like Codex's copy control */
-.chat-meta-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--chip-h);
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--fs-2xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-caps);
-  cursor: pointer;
-}
-
-.chat-meta-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-strong);
 }
 
 .markdown {
@@ -609,26 +483,15 @@
 @media (pointer: coarse) {
   .work-block-head,
   .work-row-head,
-  .chat-copy,
   .markdown-code-copy,
   .markdown-code-more {
     min-height: var(--touch-target);
   }
 
-  .chat-copy,
   .markdown-code-copy { width: var(--touch-target); }
-
-  /* no hover on touch: the meta rows are always there, quietly */
-  .chat-turn-meta { opacity: 1; }
-}
-
-@media (max-width: 480px) {
-  .chat-view { padding-inline: var(--space-3); }
-  .chat-bubble { max-width: 92%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-turn-meta { transition: none; }
   .work-block.is-live .work-block-title::before { animation: none; }
 }
 
