@@ -1,6 +1,7 @@
 import { buildXtermSource } from "./scripts/build-xterm.ts";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -19,7 +20,7 @@ const thirdPartyNotices: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [react(), thirdPartyNotices],
+  plugins: [react(), tailwindcss(), thirdPartyNotices],
   define: {
     __APP_REVISION__: JSON.stringify(revision),
     __APP_VERSION__: JSON.stringify((JSON.parse(readFileSync("package.json", "utf8")) as { version: string }).version),
@@ -39,5 +40,7 @@ export default defineConfig({
     { find: /^browser\//, replacement: `${xtermSource}/browser/` },
     { find: /^common\//, replacement: `${xtermSource}/common/` },
     { find: "@shared", replacement: new URL("./shared", import.meta.url).pathname },
+    { find: /^@\//, replacement: `${new URL("./src", import.meta.url).pathname}/` },
+    { find: /^@\//, replacement: `${new URL("./src", import.meta.url).pathname}/` },
   ] },
 });

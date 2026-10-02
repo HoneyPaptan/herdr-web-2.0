@@ -1,0 +1,98 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Geist Variable', sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --text-chat: var(--fs-chat, 0.9375rem);
+  --text-chat--line-height: 1.65;
+  --text-code: var(--fs-code, 0.875rem);
+  --text-code--line-height: 1.6;
+  --text-tool: var(--fs-tool, 0.8125rem);
+  --text-tool--line-height: 1.55;
+  --text-ui: var(--fs-ui, 0.8125rem);
+  --text-ui--line-height: 1.4;
+  --text-prompt: var(--fs-prompt, 0.9375rem);
+  --text-prompt--line-height: 1.5;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-composer: var(--composer);
+  --color-picker: var(--picker);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-button-primary: var(--button-primary);
+  --color-button-primary-foreground: var(--button-primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-edge-surface: var(--edge-surface);
+  --color-veil-strong: var(--veil-strong);
+  --color-veil-selected: var(--veil-selected);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-well: var(--surface-well);
+  --color-surface-thumb: var(--surface-thumb);
+  --color-surface-card: var(--surface-card);
+  --color-accent-add: var(--accent-add);
+  --color-accent-merged: var(--accent-merged);
+  --color-accent-thinking: var(--accent-thinking);
+  --color-accent-command: var(--accent-command);
+  --color-accent-mention: var(--accent-mention);
+  --color-accent-issue: var(--accent-issue);
+  --color-accent-session: var(--accent-session);
+  --color-accent-merge: var(--accent-merge);
+  --color-accent-merge-hover: var(--accent-merge-hover);
+  --color-accent-merge-foreground: var(--accent-merge-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --animate-shimmer: shimmer 2s linear infinite;
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+}
