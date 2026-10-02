@@ -116,7 +116,6 @@ try {
   await page.locator("#workspace-drawer").waitFor({ state: "hidden" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.equal(await log.evaluate((node) => node.scrollWidth <= node.clientWidth), true, "chat contents fit the mobile scroller");
-  // the wrapper has no box of its own (display: contents): measure the name and the level themselves
   const statusItems = page.locator(".composer-model, .composer-reasoning");
   assert.equal(await statusItems.evaluateAll((items) => items.length === 2 && items.every((item) => item.getBoundingClientRect().width > 0 && item.getBoundingClientRect().right <= innerWidth)), true, "model and reasoning stay visible on mobile");
   assert.equal(await page.locator(".composer-status").evaluate((node) => node.scrollWidth <= node.clientWidth), true, "the status line fits its one row");

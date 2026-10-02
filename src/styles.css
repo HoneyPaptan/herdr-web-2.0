@@ -40,7 +40,9 @@
   --fs-md: 14px;
   --fs-lg: 16px;
   --fs-xl: 18px;
-  --fs-input: 16px;  --lh-tight: 1.2;
+  --fs-input: 16px;
+  --fs-prompt: var(--fs-input);
+  --lh-tight: 1.2;
   --lh-base: 1.5;
   --fw-regular: 400;
   --fw-medium: 500;

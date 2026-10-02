@@ -11,7 +11,10 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Clock, FileText, Paperclip, SendHorizontal, Square, X } from "lucide-react";
+import { ArrowUp, Clock, FileText, Plus, Square, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import "./Composer.css";
 
@@ -32,47 +35,35 @@ import {
 } from "../lib/compose.ts";
 import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/mentions.ts";
 import { quickReplyButtons, useSettings } from "../lib/settings.ts";
-import { AgentMark } from "./AgentMark.tsx";
 import { BackgroundTasks } from "./BackgroundTasks.tsx";
+import { ModelPicker } from "./ModelPicker.tsx";
 import { MicButton, VoiceRecordingPill, useDictation } from "./VoiceInput.tsx";
 import { useT } from "../lib/i18n.ts";
 
 export interface ComposerProps {
   connected: boolean;
   paneId: string;
-  /** false: appearing must not take the keyboard (App switched to this pane on its own) */
   autoFocus?: boolean;
   agent: string | null;
   agentStatus?: AgentStatus;
-  /** an OmO pane's running background tasks: the status line opens their list */
   backgroundTasks?: number;
   metadata?: ConversationMetadata | null;
   queueMode?: boolean;
-  /** replaces the placeholder: how a message answers the agent's waiting prompt */
   answerHint?: string | null;
-  /** what the agent suggests typing next (Claude's grey input text): the placeholder, taken with Tab */
   suggestion?: string | null;
-  /** true: sent, clear the box; a string: keep the text and say why; a promise settles to either */
   onSend: (text: string) => boolean | string | Promise<boolean | string>;
   onAbort: () => void;
   onUploadImage: (file: File) => Promise<string>;
 }
 
 const MAX_IMAGES_PER_ACTION = 4;
-/**
- * Any file can be attached (an icon, a PDF, a log): the server stores it beside the pane
- * and the message mentions its path. These image types also get a thumbnail.
- */
 const PREVIEW_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"] as const;
 const COMMAND_CACHE_MS = 60_000;
 const SLASH_USAGE_KEY = "herdr-web-ui:slash-usage";
-/** One height for every pane on this device: it is the screen, not the conversation, that decides it. */
 const COMPOSER_HEIGHT_KEY = "herdr-web-ui:composer-height";
 const COMPOSER_HEIGHT_MAX = 480;
 const COMPOSER_HEIGHT_STEP = 24;
-/** How far a press on the grip must travel to become a resize: a tap or a resting finger sets nothing. */
 const RESIZE_SLACK = { mouse: 3, touch: 10 } as const;
-/** Two taps on the grip this close return the box to its automatic height (iOS may send no dblclick). */
 const DOUBLE_TAP_MS = 350;
 const COMMAND_SOURCES = ["builtin", "user", "project", "skill", "plugin"] as const;
 export const SOURCE_LABEL: Record<SlashCommand["source"], string> = {
@@ -107,7 +98,6 @@ function readSlashUsage(): Record<string, number> {
   }
 }
 
-/** A saved manual height, or null for the automatic one (also for anything malformed). */
 function readComposerHeight(): number | null {
   try {
     const value = Number(window.localStorage.getItem(COMPOSER_HEIGHT_KEY));
@@ -122,11 +112,9 @@ function saveComposerHeight(value: number | null): void {
     if (value === null) window.localStorage.removeItem(COMPOSER_HEIGHT_KEY);
     else window.localStorage.setItem(COMPOSER_HEIGHT_KEY, String(value));
   } catch {
-    // Without storage the height still holds until reload.
   }
 }
 
-/** Half the visible viewport at most, so a raised keyboard never leaves the transcript without room. */
 function composerHeightLimit(): number {
   const viewport = window.visualViewport?.height ?? window.innerHeight;
   return Math.min(COMPOSER_HEIGHT_MAX, Math.floor(viewport / 2));
@@ -140,11 +128,16 @@ async function cachedPaneCommands(paneId: string, machineId: string, fetchComman
   return commands;
 }
 
-/**
- * What is left of the context, as a ring filled by what is used (as Codex's app shows it):
- * red when little is left. The number is on hover, and on a tap beside the ring (a touch
- * screen has no hover). A window the transcript does not name draws no ring.
- */
+const COMPOSER_CARD = "composer-surface relative mx-auto w-[min(100%,var(--content-w))] rounded-2xl border border-edge-surface bg-composer shadow-(--shadow-surface) backdrop-blur-xl transition-colors focus-within:border-ring data-dragging:border-ring";
+const COMPOSER_INPUT = "composer-text max-h-[10lh] min-h-7 min-w-0 flex-1 resize-none overflow-y-auto px-1 py-1 text-prompt leading-normal text-foreground outline-none placeholder:text-muted-foreground";
+const ROUND_ACTION = "shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100 pointer-coarse:size-9";
+const STATUS_DOT: Record<string, string> = {
+  working: "bg-(--status-working)",
+  blocked: "bg-(--status-blocked)",
+  done: "bg-(--status-done)",
+};
+const RING_STROKE = "fill-none [stroke-width:2.5]";
+
 function ContextRing({ context }: { context: NonNullable<ConversationMetadata["context"]> }) {
   const t = useT();
   const [shown, setShown] = useState(false);
@@ -155,25 +148,25 @@ function ContextRing({ context }: { context: NonNullable<ConversationMetadata["c
   const radius = 6;
   const circumference = 2 * Math.PI * radius;
   return (
-    <button
-      type="button"
-      className={`composer-context${left <= 20 ? " is-low" : ""}`}
+    <Button
+      variant="ghost"
+      size="sm"
+      className={cn("composer-context ml-auto min-w-0 gap-1 px-1.5 text-ui tabular-nums text-muted-foreground/60", left <= 20 && "text-(--status-blocked)")}
       aria-label={`${label} · ${detail}`}
       title={`${label} · ${detail}`}
       aria-expanded={shown}
       onClick={() => setShown((open) => !open)}
     >
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <circle className="composer-context-track" cx="8" cy="8" r={radius} />
-        <circle className="composer-context-used" cx="8" cy="8" r={radius}
+      <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5 shrink-0">
+        <circle className={cn(RING_STROKE, "stroke-border")} cx="8" cy="8" r={radius} />
+        <circle className={cn(RING_STROKE, "stroke-current [stroke-linecap:round]")} cx="8" cy="8" r={radius}
           strokeDasharray={`${circumference * (100 - left) / 100} ${circumference}`} transform="rotate(-90 8 8)" />
       </svg>
-      {shown && <span className="composer-context-text">{label}</span>}
-    </button>
+      {shown && <span className="min-w-0 truncate">{label}</span>}
+    </Button>
   );
 }
 
-/** Chat-style input surface with pane-local drafts, command/file completion, and image mentions. */
 export function Composer({
   connected,
   paneId,
@@ -195,9 +188,6 @@ export function Composer({
   const { settings } = useSettings();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composingRef = useRef(false);
-  // the chat lens's input surface takes the keyboard when it appears (a pane switch remounts
-  // it), as the grid does in the terminal lens: a pane picked from the drawer is typed into
-  // and once the user picks the pane App had switched to on its own
   useEffect(() => {
     if (autoFocus) textareaRef.current?.focus({ preventScroll: true });
   }, [autoFocus]);
@@ -220,13 +210,10 @@ export function Composer({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  // shown only when chosen in Settings → Quick replies: a button beside the box was one more thing to read
   const quickOpen = settings.showQuickReplies;
   const quickReplies = quickReplyButtons(settings);
   const [manualHeight, setManualHeight] = useState<number | null>(readComposerHeight);
-  /** the box's rendered height, for the grip to announce while the height is automatic */
   const [autoHeight, setAutoHeight] = useState(0);
-  /** the automatic height of an empty box (the textarea's CSS min-height): the grip's floor */
   const [minHeight, setMinHeight] = useState(0);
   const [heightLimit, setHeightLimit] = useState(composerHeightLimit);
   const lastGripTap = useRef(0);
@@ -234,13 +221,10 @@ export function Composer({
   attachmentsRef.current = attachments;
   textRef.current = text;
   caretRef.current = caret;
-  // Codex names its skills with `$`: only there does a `$` open a menu
   const trigger = useMemo(() => activeTrigger(text, caret, { skills: agent === "codex" }), [agent, caret, text]);
-  /** a command the agent runs but the chat cannot finish, while it is what the box holds */
   const terminalOnly = useMemo(() => terminalOnlyCommand(agent, text), [agent, text]);
   const uploading = attachments.some((attachment) => attachment.state === "uploading");
   const agentLabel = agentDisplayLabel(agent);
-  // the agent's suggestion stands in the empty box as it does in its own input, until anything is typed
   const offered = connected && answerHint === null && suggestion !== null ? suggestion : null;
   const placeholder = !connected
     ? t("Reconnecting… message held here, never queued")
@@ -317,13 +301,8 @@ export function Composer({
   }, []);
 
   const maxHeight = Math.max(minHeight, heightLimit);
-  /** A grip height within the limits; at or below the automatic floor it is the automatic height again. */
   const gripHeight = (value: number): number | null => value <= minHeight ? null : Math.round(Math.min(maxHeight, value));
 
-  /**
-   * Dragging the grip up grows the box; the pointer stays captured, so a finger may leave the grip.
-   * The height changes only once the press has moved past the slack, and is saved when it lets go.
-   */
   const startResize = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const element = textareaRef.current;
     if (!element || event.button !== 0) return;
@@ -349,7 +328,6 @@ export function Composer({
         lastGripTap.current = 0;
         saveComposerHeight(height);
       } else if (finished.type === "pointerup") {
-        // a tap: the second of two quick ones returns the automatic height
         if (finished.timeStamp - lastGripTap.current < DOUBLE_TAP_MS) {
           lastGripTap.current = 0;
           setManualHeight(null);
@@ -395,7 +373,6 @@ export function Composer({
     if (selectedIndex >= choices.length) setSelectedIndex(Math.max(0, choices.length - 1));
   }, [choices.length, selectedIndex]);
 
-  // dictation lands at the caret without taking focus (a phone's keyboard stays as it was)
   const dictation = useDictation({
     mode: "chat",
     connected,
@@ -403,7 +380,6 @@ export function Composer({
     keywords: () => [...(agent ? [agentLabel] : []), ...commands.map((command) => command.name)],
     box: textareaRef,
     read: () => textRef.current,
-    // a dictation that does not fit is refused whole: cutting would drop the draft after the caret
     maxLength: MAX_COMPOSER_CHARS,
     write: (value, at) => {
       textRef.current = value;
@@ -460,7 +436,6 @@ export function Composer({
           try {
             window.localStorage.setItem(SLASH_USAGE_KEY, JSON.stringify(next));
           } catch {
-            // Completion still works when storage is unavailable.
           }
           return next;
         });
@@ -532,8 +507,6 @@ export function Composer({
       if (!mounted.current) return;
       if (typeof result === "string") setNote(result);
       if (acknowledged === null) return;
-      // only what was sent leaves the box: text added after it stays exactly as typed. Changed
-      // inside while on its way, the whole edit stays, and the note says it was not sent
       const { text: rest, edited } = acknowledged;
       setCaret(rest.length);
       textRef.current = rest;
@@ -543,7 +516,6 @@ export function Composer({
       setAttachments((current) => current.filter((attachment) => !sentAttachments.includes(attachment)));
     };
     if (!composerDrafts.begin(draftKey, sent)) return;
-    // a polish landing before the acknowledgement would count as an edit and keep the sent message here
     dictation.forget();
     try {
       const result = onSend(text);
@@ -555,7 +527,6 @@ export function Composer({
     }
   }, [attachments, connected, dictation.forget, draftKey, onSend, sending, text, uploading]);
 
-  /** A quick reply goes the way a typed message does (queued mid-turn, an answer to an open menu), and leaves the box alone. */
   const sendQuick = useCallback((reply: string) => {
     if (!connected || sending) return;
     setNote(null);
@@ -575,7 +546,6 @@ export function Composer({
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      // an IME keeps its keys; WebKit can send the committing Enter after compositionend, as key code 229
       if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
       if (menuOpen && trigger) {
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -600,7 +570,6 @@ export function Composer({
         setMenuDismissed(true);
         return;
       }
-      // Tab takes the suggestion into the empty box, as in Claude's own input
       if (event.key === "Tab" && !event.shiftKey && offered !== null && textRef.current === "") {
         event.preventDefault();
         setTextAndCaret(offered, offered.length);
@@ -644,28 +613,6 @@ export function Composer({
 
   return (
     <div className="composer" role="group" aria-label={t("Message composer")}>
-      <div className="composer-status" role="status" data-status={agentStatus ?? "unknown"}>
-        {agent && <AgentMark agent={agent} size={14} />}
-        <span className="composer-agent-label">{agentLabel}</span>
-        <span className="composer-status-separator" aria-hidden="true">·</span>
-        <strong>{t(composerStatusWord(agentStatus))}</strong>
-        <BackgroundTasks paneId={paneId} count={backgroundTasks} omo={agent === "omo"} />
-        {(metadata?.model || metadata?.reasoning_effort) && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
-          <span className="composer-model" title={metadata.model ?? t("Model not available")}>{metadata.model ?? t("Model —")}</span>
-          <span className="composer-reasoning" title={metadata.reasoning_effort ? t("Reasoning effort: {effort}", { effort: metadata.reasoning_effort }) : t("Reasoning effort not available")}>
-            <span className="composer-reasoning-full">{t("Reasoning {effort}", { effort: metadata.reasoning_effort ?? "—" })}</span>
-            <span className="composer-reasoning-short" aria-hidden="true">{metadata.reasoning_effort ?? "—"}</span>
-          </span>
-        </span>}
-        {metadata?.context && <ContextRing context={metadata.context} />}
-        {(uploading || !connected) && (
-          <span className="composer-status-hint">
-            <span aria-hidden="true">·</span> {t(uploading ? "Uploading file…" : "Reconnecting… message held here, never queued")}
-          </span>
-        )}
-      </div>
-
-      {/* no Tab key on a phone: the suggestion can be a chip there that fills the box, once chosen in Settings */}
       {settings.showSuggestionChip && offered !== null && text === "" && (
         <div className="composer-quick composer-suggestion-row">
           <button type="button" className="composer-quick-reply composer-suggestion" title={t("Use the suggestion")} onClick={() => setTextAndCaret(offered, offered.length)}>
@@ -692,7 +639,9 @@ export function Composer({
       )}
 
       <div
-        className={`composer-surface${dragging ? " is-dragging" : ""}`}
+        data-slot="composer-card"
+        data-dragging={dragging || undefined}
+        className={COMPOSER_CARD}
         onDragEnter={(event) => {
           event.preventDefault();
           setDragging(true);
@@ -786,111 +735,122 @@ export function Composer({
           </div>
         )}
 
-        <textarea
-          ref={textareaRef}
-        onCompositionStart={() => { composingRef.current = true; }}
-        onCompositionEnd={() => { composingRef.current = false; }}
-          className={`composer-text${manualHeight !== null ? " is-sized" : ""}`}
-          rows={1}
-          maxLength={MAX_COMPOSER_CHARS}
-          value={text}
-          placeholder={placeholder}
-          aria-label={t("Message")}
-          aria-controls={menuOpen ? menuId : undefined}
-          aria-expanded={menuOpen}
-          aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          // stays editable while the socket reconnects (sending waits for it): a phone's
-          // dictation keyboard opens its own app and comes back, the socket may drop meanwhile,
-          // and a disabled box would lose its focus and the dictated text with it
-          onPaste={onPaste}
-          onKeyDown={onKeyDown}
-          onClick={(event) => {
-            setCaret(event.currentTarget.selectionStart);
-            setMenuDismissed(false);
-          }}
-          onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
-          onChange={(event) => {
-            setText(event.target.value);
-            setCaret(event.target.selectionStart);
-            setMenuDismissed(false);
-            setNote(null);
-          }}
-        />
-
-        <div className="composer-controls composer-controls-left">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            hidden
+        <div className="flex items-end gap-1 p-3 pointer-coarse:p-2">
+          <textarea
+            ref={textareaRef}
+            data-slot="composer-input"
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={() => { composingRef.current = false; }}
+            className={cn(COMPOSER_INPUT, manualHeight !== null && "is-sized")}
+            rows={1}
+            maxLength={MAX_COMPOSER_CHARS}
+            value={text}
+            placeholder={placeholder}
+            aria-label={t("Message")}
+            aria-controls={menuOpen ? menuId : undefined}
+            aria-expanded={menuOpen}
+            aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            onPaste={onPaste}
+            onKeyDown={onKeyDown}
+            onClick={(event) => {
+              setCaret(event.currentTarget.selectionStart);
+              setMenuDismissed(false);
+            }}
+            onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
             onChange={(event) => {
-              const picked = Array.from(event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-              void uploadImages(picked);
+              setText(event.target.value);
+              setCaret(event.target.selectionStart);
+              setMenuDismissed(false);
+              setNote(null);
             }}
           />
-          <button
-            type="button"
-            className="icon-button composer-attach"
-            aria-label={t("Attach files")}
-            title={t("Attach files")}
-            disabled={!connected || uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip aria-hidden="true" />
-          </button>
           {dictation.shown && <MicButton dictation={dictation} />}
-        </div>
-        <div className="composer-controls composer-controls-right">
           {queueMode && (
-            <button
-              type="button"
-              className="composer-queue-button"
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 rounded-full text-ui pointer-coarse:h-9"
               aria-label={t("Queue message")}
-              title={t("Queue as the next message")}
               disabled={!connected || uploading || sending || text.trim().length === 0}
               onClick={send}
             >
-              <Clock aria-hidden="true" />
+              <Clock />
               {t("Queue")}
-            </button>
+            </Button>
           )}
           {isWorking ? (
-            <button
-              type="button"
-              className="composer-action composer-stop"
-              aria-label={t("Stop agent")}
-              title={t("Stop agent")}
-              disabled={!connected}
-              onClick={onAbort}
-            >
-              <Square aria-hidden="true" />
-            </button>
+            <Button size="icon-sm" className={ROUND_ACTION} aria-label={t("Stop agent")} disabled={!connected} onClick={onAbort}>
+              <Square className="fill-current" />
+            </Button>
           ) : !queueMode ? (
-            <button
-              type="button"
-              className="composer-action composer-send"
+            <Button
+              size="icon-sm"
+              className={ROUND_ACTION}
               aria-label={t("Send message")}
-              title={t("Send message")}
               disabled={!connected || uploading || sending || text.trim().length === 0}
               onClick={send}
             >
-              <SendHorizontal aria-hidden="true" />
-            </button>
+              <ArrowUp strokeWidth={2} />
+            </Button>
           ) : null}
         </div>
       </div>
+
+      <div
+        data-slot="composer-toolbar"
+        className="composer-status mx-auto flex w-[min(100%,var(--content-w))] min-w-0 items-center gap-0.5 px-1 pt-1.5"
+        role="status"
+        data-status={agentStatus ?? "unknown"}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(event) => {
+            const picked = Array.from(event.currentTarget.files ?? []);
+            event.currentTarget.value = "";
+            void uploadImages(picked);
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0 text-muted-foreground pointer-coarse:size-9"
+          aria-label={t("Attach files")}
+          disabled={!connected || uploading}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Plus />
+        </Button>
+        <ModelPicker
+          agent={agent}
+          agentLabel={agentLabel}
+          model={metadata?.model ?? null}
+          effort={metadata?.reasoning_effort ?? null}
+          disabled={!connected || sending || isWorking}
+          onCommand={sendQuick}
+        />
+        <span className="inline-flex shrink-0 items-center gap-1.5 px-1.5 text-ui text-muted-foreground">
+          <span aria-hidden="true" className={cn("size-1.5 rounded-full", STATUS_DOT[agentStatus ?? ""] ?? "bg-muted-foreground/60")} />
+          {t(composerStatusWord(agentStatus))}
+        </span>
+        <BackgroundTasks paneId={paneId} count={backgroundTasks} omo={agent === "omo"} />
+        {(uploading || !connected) && (
+          <span className="min-w-0 truncate px-1.5 text-ui text-muted-foreground/60 max-[480px]:hidden">
+            {t(uploading ? "Uploading file…" : "Reconnecting… message held here, never queued")}
+          </span>
+        )}
+        {metadata?.context && <ContextRing context={metadata.context} />}
+      </div>
+
       {note && <div className="composer-note" role="alert">{note}</div>}
-      {/* said while typing, before the send: after it the browser is already open and the reader is
-          already in the state the words describe. Not a block — the text still goes, and pi runs the
-          command in the terminal the way its own palette would */}
       {!note && terminalOnly !== null && (
-        <div className="composer-hint">{t("{command} opens a tree the chat cannot show. It runs in the terminal — tap the terminal button at the top of the screen to choose a branch.", { command: `/${terminalOnly}` })}</div>
+        <div className="composer-hint">{t("{command} opens a tree the chat cannot show. It runs in the terminal. Tap the terminal button at the top of the screen to choose a branch.", { command: `/${terminalOnly}` })}</div>
       )}
-      {/* above the whole composer: inside the surface it would cover the agent status line */}
       {dictation.shown && <VoiceRecordingPill dictation={dictation} align="start" />}
     </div>
   );
