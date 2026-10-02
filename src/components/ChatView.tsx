@@ -1,6 +1,6 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
-  ArrowDown, BookOpen, Check, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, CircleDot, CircleSlash, Copy, Target,
+  ArrowDown, Check, ChevronRight, Circle, CircleAlert, CircleCheck, CircleDot, CircleSlash, Copy,
   type LucideProps,
 } from "lucide-react";
 
@@ -105,16 +105,29 @@ function CopyButton({ text, label, children }: { text: string; label: string; ch
   );
 }
 
+const PLAN_LIST = "m-0 flex list-none flex-col gap-1.5 p-0";
+const PLAN_ITEM = "flex items-start gap-2 text-chat leading-snug";
+const PLAN_PHASE = "m-0 mt-1 text-ui font-medium text-muted-foreground/70";
+const IMAGE_ROW = "flex max-w-full flex-wrap gap-1.5";
+const IMAGE = "chat-user-image block min-w-0 cursor-zoom-in overflow-hidden rounded-md border-0 bg-transparent p-0 transition-opacity hover:opacity-90 [&>img]:block [&>img]:size-20 [&>img]:object-cover";
+
 function ChecklistView({ rows }: { rows: ChecklistRow[] }) {
-  return <ul className="chat-checklist">{rows.map((row, index) => (
-    <li key={index} className={row.heading ? "chat-checklist-phase" : row.done ? "is-done" : row.active ? "is-active" : undefined}>
-      {!row.heading && <span className="chat-checklist-box" aria-hidden="true">{row.done ? "✓" : "•"}</span>}{row.label}
+  return <ul className={cn("chat-checklist", PLAN_LIST)}>{rows.map((row, index) => (
+    <li key={index} className={row.heading ? PLAN_PHASE : cn(PLAN_ITEM, row.done ? "text-muted-foreground" : row.active ? "text-foreground" : "text-foreground/90")}>
+      {!row.heading && <span className={cn("w-4 shrink-0", row.done ? "text-accent-add" : "text-muted-foreground")} aria-hidden="true">{row.done ? "✓" : "•"}</span>}{row.label}
     </li>
   ))}</ul>;
 }
 
 const TODO_ICONS: Record<TodoStatus, ComponentType<LucideProps>> = {
   completed: CircleCheck, in_progress: CircleDot, pending: Circle, blocked: CircleAlert, dropped: CircleSlash,
+};
+const TODO_TONE: Record<TodoStatus, { text: string; icon: string }> = {
+  completed: { text: "text-muted-foreground", icon: "text-accent-add" },
+  in_progress: { text: "text-foreground", icon: "text-foreground/70" },
+  pending: { text: "text-foreground/90", icon: "text-muted-foreground/40" },
+  blocked: { text: "text-foreground/90", icon: "text-destructive" },
+  dropped: { text: "text-muted-foreground line-through", icon: "text-muted-foreground/40" },
 };
 const TODO_LABELS: Record<TodoStatus, string> = {
   completed: "done", in_progress: "in progress", pending: "to do", blocked: "blocked", dropped: "dropped",
@@ -126,14 +139,14 @@ function TodoList({ items }: { items: TodoItem[] }) {
     const group = groups[groups.length - 1];
     if (group && group.phase === item.phase) group.items.push(item); else groups.push({ phase: item.phase, items: [item] });
   }
-  return <div className="todo-list">{groups.map((group, index) => (
-    <div key={index} className="todo-group">
-      {group.phase !== null && <p className="todo-phase">{group.phase}</p>}
-      <ul>{group.items.map((item, row) => {
+  return <div className="todo-list flex flex-col gap-3">{groups.map((group, index) => (
+    <div key={index} className="flex flex-col gap-1.5">
+      {group.phase !== null && <p className={PLAN_PHASE}>{group.phase}</p>}
+      <ul className={PLAN_LIST}>{group.items.map((item, row) => {
         const Icon = TODO_ICONS[item.status];
-        return <li key={row} className={`todo-item is-${item.status}`}>
-          <Icon className="todo-icon" aria-hidden="true" />
-          <span className="todo-label">{item.label}<span className="sr-only"> ({TODO_LABELS[item.status]})</span>{item.note && <span className="todo-note">{item.note}</span>}</span>
+        return <li key={row} className={cn("todo-item", PLAN_ITEM, TODO_TONE[item.status].text)}>
+          <Icon className={cn("mt-0.5 size-4 shrink-0", TODO_TONE[item.status].icon)} aria-hidden="true" />
+          <span className="min-w-0 wrap-anywhere">{item.label}<span className="sr-only"> ({TODO_LABELS[item.status]})</span>{item.note && <span className="block text-ui text-muted-foreground">{item.note}</span>}</span>
         </li>;
       })}</ul>
     </div>
@@ -235,9 +248,9 @@ function ToolImages({ paneId, part }: { paneId: string; part: ToolPartType }) {
   const t = useT();
   const machineId = useMachineId();
   if (part.images === undefined || part.images.length === 0) return null;
-  return <div className="chat-tool-images flex flex-wrap gap-2">{part.images.map((image) => {
+  return <div className={cn("chat-tool-images", IMAGE_ROW)}>{part.images.map((image) => {
     const src = machinePath(machineId, `pane/conversation/image?${new URLSearchParams({ pane_id: paneId, ref: image.ref }).toString()}`);
-    return <a key={image.ref} className="chat-user-image" href={src} target="_blank" rel="noopener noreferrer" title={t("Open image")}><img src={src} alt={t("Attached image")} loading="lazy" /></a>;
+    return <a key={image.ref} className={IMAGE} href={src} target="_blank" rel="noopener noreferrer" aria-label={t("Open image")}><img src={src} alt={t("Attached image")} loading="lazy" /></a>;
   })}</div>;
 }
 
@@ -321,23 +334,27 @@ function WorkBlockView({ paneId, parts, duration, live, defaultOpen, showThinkin
   </section>;
 }
 
-function SkillActivityList({ parts }: { parts: ConversationPart[] }) {
+function SkillActivityList({ parts, end = false }: { parts: ConversationPart[]; end?: boolean }) {
   const t = useT();
   const skills = turnSkills(parts);
   if (skills.length === 0) return null;
-  return <div className="chat-skills" role="group" aria-label={t("Skill activity")}>
-    {skills.map((skill) => <details className={`chat-skill${skill.status === "failed" ? " is-error" : ""}`} key={`${skill.evidence}:${skill.path ?? skill.name}`}>
-      <summary><BookOpen aria-hidden="true" /><span className="chat-skill-name">{skill.name}</span><span className="chat-skill-status">{
+  return <div className={cn("chat-skills flex max-w-full flex-col gap-1.5", end ? "items-end" : "items-start")} role="group" aria-label={t("Skill activity")}>
+    {skills.map((skill) => <details className={cn("chat-skill max-w-full", EVENT, skill.status === "failed" && "is-error")} key={`${skill.evidence}:${skill.path ?? skill.name}`}>
+      <summary className={EVENT_SUMMARY}><span className={cn("chat-skill-name wrap-anywhere", EVENT_LABEL, skill.status === "failed" && "text-destructive")}>{skill.name}</span><span className="min-w-0 truncate text-muted-foreground">{
         skill.evidence === "invocation"
           ? skill.status === "failed" ? t("Skill invocation failed") : skill.status === "requested" ? t("Skill requested") : t("Skill invoked")
           : skill.status === "failed" ? t("Skill read failed") : skill.status === "requested" ? t("Reading skill requested") : t("Skill instructions loaded")
-      }</span><ChevronDown className="chat-skill-caret" aria-hidden="true" /></summary>
-      <div className="chat-skill-detail"><p>{skill.evidence === "invocation" ? t("Recorded by the agent's Skill tool. This does not mean the skill's work is complete.") : t("The transcript records loading this skill's instructions. This does not confirm every step was followed.")}</p>
-        {skill.path && <code>{skill.path}</code>}
+      }</span><EventChevron /></summary>
+      <div className={cn(EVENT_DETAIL, "wrap-anywhere")}><p className="m-0 mb-1">{skill.evidence === "invocation" ? t("Recorded by the agent's Skill tool. This does not mean the skill's work is complete.") : t("The transcript records loading this skill's instructions. This does not confirm every step was followed.")}</p>
+        {skill.path && <code className="font-mono text-code">{skill.path}</code>}
       </div>
     </details>)}
   </div>;
 }
+
+const GOAL_TONE: Record<GoalStatus, string> = {
+  active: "text-foreground/80", paused: "text-muted-foreground", blocked: "text-destructive", complete: "text-accent-add", budget_limited: "text-destructive",
+};
 
 function GoalActivity({ goal }: { goal: GoalState }) {
   const t = useT();
@@ -348,13 +365,13 @@ function GoalActivity({ goal }: { goal: GoalState }) {
     goal.timeUsedSeconds !== null && goal.timeUsedSeconds > 0 ? formatGoalTime(goal.timeUsedSeconds) : null,
     goal.tokensUsed !== null && goal.tokensUsed > 0 ? t("{n} tokens", { n: formatTokens(goal.tokensUsed) }) : null,
   ].filter((item) => item !== null).join(" · ");
-  return <details className={`chat-goal is-${goal.status}`}>
-    <summary><Target aria-hidden="true" /><span className="chat-goal-label">{t("Goal")}</span><span className="chat-goal-objective">{goal.objective}</span>
-      <span className="chat-goal-status">{word[goal.status]}</span><ChevronDown className="chat-skill-caret" aria-hidden="true" /></summary>
-    <div className="chat-goal-detail">
-      <p className="chat-goal-text">{goal.objective}</p>
-      {goal.blockedReason !== null && <p className="chat-goal-reason">{goal.blockedReason}</p>}
-      {spent.length > 0 && <p className="chat-goal-spent">{t("Used so far: {spent}", { spent })}</p>}
+  return <details className={cn("chat-goal w-full min-w-0", EVENT)}>
+    <summary className={EVENT_SUMMARY}><span className={EVENT_LABEL}>{t("Goal")}</span><span className="min-w-0 flex-1 truncate text-muted-foreground group-open/event:invisible">{goal.objective}</span>
+      <span className={cn("shrink-0", GOAL_TONE[goal.status])}>{word[goal.status]}</span><EventChevron /></summary>
+    <div className={cn(EVENT_DETAIL, "wrap-anywhere")}>
+      <p className="m-0 mb-1 whitespace-pre-wrap text-foreground/90">{goal.objective}</p>
+      {goal.blockedReason !== null && <p className="m-0 mb-1">{goal.blockedReason}</p>}
+      {spent.length > 0 && <p className="m-0">{t("Used so far: {spent}", { spent })}</p>}
     </div>
   </details>;
 }
@@ -368,16 +385,16 @@ function UserImages({ paneId, parts, text }: { paneId: string; parts: Conversati
   const pasted = parts.filter((part): part is Extract<ConversationPart, { kind: "image" }> => part.kind === "image");
   const mentioned = [...new Set([...text.matchAll(IMAGE_MENTION)].map((match) => match[1]!))];
   if (pasted.length === 0 && mentioned.length === 0) return null;
-  return <div className="chat-user-images">
+  return <div className={cn("chat-user-images justify-end", IMAGE_ROW)}>
     {pasted.map((part) => {
       const src = machinePath(machineId, `pane/conversation/image?${new URLSearchParams({ pane_id: paneId, ref: part.ref }).toString()}`);
-      return <a key={part.ref} className="chat-user-image" href={src} target="_blank" rel="noopener noreferrer" title={t("Open image")}><img src={src} alt={t("Attached image")} loading="lazy" /></a>;
+      return <a key={part.ref} className={IMAGE} href={src} target="_blank" rel="noopener noreferrer" aria-label={t("Open image")}><img src={src} alt={t("Attached image")} loading="lazy" /></a>;
     })}
     {mentioned.map((path) => {
       const src = fileUrl(path, paneId, machineId);
       return open !== null
-        ? <button key={path} type="button" className="chat-user-image" title={t("Open {path}", { path })} onClick={() => open(path)}><img src={src} alt={path} loading="lazy" /></button>
-        : <a key={path} className="chat-user-image" href={src} target="_blank" rel="noopener noreferrer" title={path}><img src={src} alt={path} loading="lazy" /></a>;
+        ? <button key={path} type="button" className={IMAGE} aria-label={t("Open {path}", { path })} onClick={() => open(path)}><img src={src} alt={path} loading="lazy" /></button>
+        : <a key={path} className={IMAGE} href={src} target="_blank" rel="noopener noreferrer" aria-label={path}><img src={src} alt={path} loading="lazy" /></a>;
     })}
   </div>;
 }
@@ -412,7 +429,7 @@ const Turn = memo(function Turn({ paneId, turn, live, last, showThinking }: Turn
     return <article className={cn(TURN, "chat-turn-user group/turn flex flex-col items-end gap-1.5")}>
       <UserImages paneId={paneId} parts={turn.parts} text={text} />
       {text.length > 0 && <div className="chat-bubble max-w-[85%] rounded-xl bg-card px-3 py-2 text-chat text-card-foreground shadow-(--shadow-card) wrap-anywhere"><Markdown>{text}</Markdown></div>}
-      <SkillActivityList parts={turn.parts} />
+      <SkillActivityList parts={turn.parts} end />
       <div className={TURN_META}>{time !== null && <time className="px-1" dateTime={turn.ts ?? undefined}>{time}</time>}{text.length > 0 && <CopyButton text={text} label={t("Copy message")} />}</div>
     </article>;
   }
