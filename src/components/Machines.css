@@ -216,14 +216,6 @@
   padding: 0 var(--space-3) var(--space-2) var(--machine-indent);
 }
 
-.machine-context-name {
-  max-width: 140px;
-  overflow: hidden;
-  color: var(--text-strong);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .machine-dot.is-connecting,
   .machine-dot.is-reconnecting { animation: none; }
