@@ -9,7 +9,6 @@ import { StatusRail } from "./StatusMark.tsx";
 const RAIL_X = 12;
 const STEP = 12;
 const ELBOW = 10;
-const NO_CARRY: readonly number[] = [];
 const RAIL = "pointer-events-none absolute w-px bg-sidebar-border";
 const ACTIVE_ON_TOUCH = "pointer-coarse:group-aria-[current=true]:pointer-events-auto pointer-coarse:group-aria-[current=true]:opacity-100";
 
@@ -25,9 +24,9 @@ export function HeadingLabel({ children }: { children: ReactNode }) {
   return <div className="flex min-h-6 items-center truncate pr-0.5 pl-2 text-ui text-muted-foreground/70">{children}</div>;
 }
 
-export function HeadingRow({ label, toggleLabel, expanded, onToggle, detail, actions, opensRail = false, className, ...rest }: {
+export function HeadingRow({ label, toggleLabel, expanded, onToggle, detail, actions, band = false, className, ...rest }: {
   label: ReactNode;
-  opensRail?: boolean;
+  band?: boolean;
   toggleLabel?: string;
   expanded: boolean;
   onToggle: () => void;
@@ -35,21 +34,23 @@ export function HeadingRow({ label, toggleLabel, expanded, onToggle, detail, act
   actions?: ReactNode;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("group/heading relative flex min-h-6 items-center pr-0.5 pointer-coarse:min-h-9", className)} {...rest}>
-      {opensRail && <span aria-hidden="true" className={cn(RAIL, "top-[calc(50%+0.5rem)] -bottom-px")} style={{ left: RAIL_X }} />}
+    <div className={cn("group/heading flex min-h-6 items-center pr-0.5 pointer-coarse:min-h-9", className)} {...rest}>
       <button
         type="button"
         data-slot="sidebar-heading"
         aria-expanded={expanded}
         aria-label={toggleLabel}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 self-stretch rounded-md pl-2 text-left text-ui text-muted-foreground/70 transition-colors duration-150 outline-none hover:text-foreground/75 focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        className={cn(
+          "flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 self-stretch rounded-md text-left text-ui transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          band ? "pl-1 text-muted-foreground hover:text-foreground" : "pl-2 text-muted-foreground/70 hover:text-foreground/75",
+        )}
         onClick={onToggle}
       >
         <span className="truncate">{label}</span>
         {detail}
         {!expanded && <ChevronRight aria-hidden="true" className="size-3 shrink-0" />}
       </button>
-      {actions && <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 group-focus-within/heading:opacity-100 group-hover/heading:opacity-100 pointer-coarse:opacity-100">{actions}</div>}
+      {actions && <div className={cn("flex shrink-0 items-center gap-0.5 transition-opacity duration-150", band ? "pr-1.5" : "opacity-0 group-focus-within/heading:opacity-100 group-hover/heading:opacity-100 pointer-coarse:opacity-100")}>{actions}</div>}
     </div>
   );
 }
@@ -81,11 +82,10 @@ export function RowAction({ label, onClick, disabled, pressed, children }: {
   );
 }
 
-function NestRails({ depth, continues, carry, opensRail }: { depth: number; continues: boolean; carry: readonly number[]; opensRail: boolean }) {
+function NestRails({ depth, continues, opensRail }: { depth: number; continues: boolean; opensRail: boolean }) {
   const ownRail = RAIL_X + (depth - 1) * STEP;
   return (
     <>
-      {carry.map((level) => <span key={level} aria-hidden="true" className={cn(RAIL, "top-0 -bottom-px")} style={{ left: RAIL_X + (level - 1) * STEP }} />)}
       {depth > 0 && (
         <>
           <span aria-hidden="true" className={cn(RAIL, "top-0")} style={{ left: ownRail, height: continues ? "calc(100% + 1px)" : "50%" }} />
@@ -98,7 +98,7 @@ function NestRails({ depth, continues, carry, opensRail }: { depth: number; cont
   );
 }
 
-export function SessionRow({ active, status, title, meta, actions, open = false, depth = 0, continues = false, carry = NO_CARRY, opensRail = false, onSelect, onKeyDown, className, ...rest }: {
+export function SessionRow({ active, status, title, meta, actions, open = false, depth = 0, continues = false, opensRail = false, onSelect, onKeyDown, className, ...rest }: {
   active: boolean;
   status?: AgentStatus;
   title: ReactNode;
@@ -107,7 +107,6 @@ export function SessionRow({ active, status, title, meta, actions, open = false,
   open?: boolean;
   depth?: number;
   continues?: boolean;
-  carry?: readonly number[];
   opensRail?: boolean;
   onSelect: () => void;
 } & Omit<HTMLAttributes<HTMLDivElement>, "title" | "onSelect">) {
@@ -134,7 +133,7 @@ export function SessionRow({ active, status, title, meta, actions, open = false,
       {...rest}
     >
       <StatusRail status={status} />
-      <NestRails depth={depth} continues={continues} carry={carry} opensRail={opensRail} />
+      <NestRails depth={depth} continues={continues} opensRail={opensRail} />
       <span className="min-w-0 flex-1 truncate text-ui">{title}</span>
       <div data-row-meta className="relative flex min-w-[4em] shrink-0 items-center justify-end self-stretch pl-2 text-ui">
         <span className={cn("pointer-events-none absolute right-0 flex items-center gap-1 whitespace-nowrap text-ui text-muted-foreground transition-opacity duration-150 group-data-[state=open]:opacity-0", actions && "group-hover:opacity-0 pointer-coarse:group-aria-[current=true]:opacity-0")}>{meta}</span>

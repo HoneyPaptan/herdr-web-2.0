@@ -61,8 +61,11 @@ export function BackgroundBadge({ count }: { count?: number }) {
   );
 }
 
+const HOME_DIR = /^(?:\/root|\/(?:home|Users)\/[^/\\]+|[A-Za-z]:[\\/]Users[\\/][^/\\]+)[\\/]*$/;
+
 function cwdBasename(cwd: string | null | undefined): string {
-  return cwd ? folderName(cwd) : "unknown directory";
+  if (!cwd) return "unknown directory";
+  return HOME_DIR.test(cwd.trim()) ? "~" : folderName(cwd);
 }
 
 interface InlineError {
@@ -274,7 +277,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
     <RowAction label={t("Close {title}", { title: displayTitle })} onClick={() => closePaneClick(paneId)}><X /></RowAction>
   );
 
-  const paneRow = (workspace: WorkspaceInfo, pane: PaneInfo, depth: number, continues: boolean, scope: string, carry: readonly number[] = [], movable = false) => {
+  const paneRow = (workspace: WorkspaceInfo, pane: PaneInfo, depth: number, continues: boolean, scope: string) => {
     const displayTitle = displayPaneTitle(pane);
     const selected = pane.pane_id === selectedPaneId;
     const editing = editingPaneId === pane.pane_id;
@@ -286,7 +289,6 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
           status={pane.agent_status}
           depth={depth}
           continues={continues}
-          carry={carry}
           open={editing || armedId === pane.pane_id}
           aria-label={`${displayTitle}, ${pane.agent ?? t("Shell")}`}
           title={editing ? renameField(paneLabel, t("Pane name"), setPaneLabel, () => savePaneRename(pane.pane_id), () => setEditingPaneId(null)) : displayTitle}
@@ -300,20 +302,19 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
             {closeActions(pane.pane_id, displayTitle)}
           </>}
           onSelect={() => actions.selectPane(pane.pane_id)}
-          {...(movable ? dragProps(workspace.workspace_id) : {})}
+          {...(depth === 0 ? dragProps(workspace.workspace_id) : {})}
         />
         {inlineError?.paneId === pane.pane_id && errorFor(inlineError.message)}
       </Fragment>
     );
   };
 
-  const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "", depth = 0, continues = false) => {
+  const renderWorkspace = (workspace: WorkspaceInfo, visiblePanes: PaneInfo[], scope = "") => {
     if (visiblePanes.length === 0) return null;
     const groupKey = `workspace:${workspace.workspace_id}`;
     const collapsed = collapsedGroups.has(groupKey);
     const editing = editingWorkspaceId === `${scope}\u0000${workspace.workspace_id}`;
     const single = visiblePanes.length === 1;
-    const childCarry = depth > 0 && continues ? [depth] : [];
     return (
       <div
         className={cn("workspace flex flex-col gap-px", dragWorkspaceId === workspace.workspace_id && "opacity-50")}
@@ -324,13 +325,11 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
         }}
         onDrop={(event) => onDrop(event, workspace.workspace_id)}
       >
-        {single ? paneRow(workspace, visiblePanes[0]!, depth, continues, scope, [], true) : (
+        {single ? paneRow(workspace, visiblePanes[0]!, 0, false, scope) : (
           <>
             <SessionRow
               className="workspace-header"
               active={false}
-              depth={depth}
-              continues={continues}
               status={collapsed ? workspace.agent_status : undefined}
               opensRail={!collapsed}
               open={editing}
@@ -342,7 +341,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
               onSelect={() => setGroupCollapsed(groupKey, !collapsed)}
               {...dragProps(workspace.workspace_id)}
             />
-            {!collapsed && visiblePanes.map((pane, index) => paneRow(workspace, pane, depth + 1, index < visiblePanes.length - 1, scope, childCarry))}
+            {!collapsed && visiblePanes.map((pane, index) => paneRow(workspace, pane, 1, index < visiblePanes.length - 1, scope))}
           </>
         )}
       </div>
@@ -362,11 +361,10 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
             className="directory-header"
             label={name}
             expanded={!collapsed}
-            opensRail={!collapsed && directory.workspaces.length > 0}
             toggleLabel={collapsed ? t("Expand folder {name}", { name: full }) : t("Collapse folder {name}", { name: full })}
             onToggle={() => setGroupCollapsed(groupKey, !collapsed)}
           />
-          {!collapsed && directory.workspaces.map(({ workspace, panes: visiblePanes }, index) => renderWorkspace(workspace, visiblePanes, directory.key, 1, index < directory.workspaces.length - 1))}
+          {!collapsed && directory.workspaces.map(({ workspace, panes: visiblePanes }) => renderWorkspace(workspace, visiblePanes, directory.key))}
         </div>
       </Fragment>
     );

@@ -43,7 +43,7 @@ const MENU_ROW = "cursor-pointer text-ui";
 
 function SidebarActions({ target, onNew }: { target: Machine | undefined; onNew(): void }) {
   const t = useT();
-  return <div className="flex shrink-0 flex-col gap-px px-2 pt-2 pb-1">
+  return <div className="flex shrink-0 flex-col gap-px px-2">
     <Button variant="ghost" size="sm" className={SIDEBAR_ACTION} disabled={target !== undefined && target.state !== "connected"} aria-label={target ? t("New session on {name}", { name: target.name }) : t("New session")} onClick={onNew}>
       <Plus />{t("New session")}<ShortcutKeys keys={["⌘", "⇧", "N"]} className={KEYCAPS} />
     </Button>
@@ -62,7 +62,7 @@ function SidebarMore({ version, onAdd, onInstallHelp }: { version: string | null
         <Ellipsis />
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent side="top" align="end" sideOffset={4} className="w-[min(240px,calc(100vw-1rem))]">
+    <DropdownMenuContent side="bottom" align="end" sideOffset={4} className="w-[min(240px,calc(100vw-1rem))]">
       <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5 text-ui font-normal">
         <span className="truncate text-foreground">herdr web ui v{__APP_VERSION__}</span>
         <span className="truncate text-muted-foreground/60">{version ? `herdr ${version}` : t("herdr offline")}</span>
@@ -80,23 +80,19 @@ export function MachineSidebar(props: Props) {
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const target = props.machines.find((machine) => machine.id === props.selectedMachineId);
   return <div className="sidebar-shell">
+    <div className="sidebar-strip flex h-10 shrink-0 items-center gap-0.5 px-2">
+      <div className="flex min-w-0 flex-1 items-center"><UsageMeters /></div>
+      <Button variant="ghost" size="icon-sm" className="sidebar-settings shrink-0 opacity-80 transition-opacity hover:opacity-100" aria-label={t("Settings")} onClick={props.actions.openSettings}><Settings className="size-4" /></Button>
+      <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
+    </div>
+    {installHelpOpen && <p className="px-3.5 pb-2 text-ui text-muted-foreground/60" role="status">{help}</p>}
     <SidebarActions target={target} onNew={props.actions.openNewSession} />
     <UsagePanel />
-    <div className={cn("machine-list pt-1", SIDEBAR_LIST)} aria-label={t("PCs and workspaces")}>
+    <div className={cn(SIDEBAR_LIST, "machine-list mt-4 pb-[calc(--spacing(3)+env(safe-area-inset-bottom,0px))]")} aria-label={t("PCs and workspaces")}>
       <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
       {props.machines.map((machine, index) => <Fragment key={machine.id}>{index > 0 && <GroupSpacer />}<MachineGroup {...props} machine={machine} /></Fragment>)}
       {!props.machines.length && <p className={SIDEBAR_EMPTY} role="status">{t("Loading PCs…")}</p>}
     </div>
-    <footer className="sidebar-footer relative flex shrink-0 flex-col gap-1 border-t border-border px-2 pt-2 pb-[calc(--spacing(2)+env(safe-area-inset-bottom,0px))]">
-      {installHelpOpen && <p className="px-1.5 text-ui text-muted-foreground/60" role="status">{help}</p>}
-      <div className="sidebar-footer-row flex min-w-0 items-center gap-1">
-        <Button variant="ghost" size="sm" className={cn("sidebar-footer-action min-w-0 flex-1", SIDEBAR_ACTION)} onClick={props.actions.openSettings}>
-          <Settings />{t("Settings")}<ShortcutKeys keys={["⌘", "⇧", ","]} className={KEYCAPS} />
-        </Button>
-        <UsageMeters />
-        <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
-      </div>
-    </footer>
   </div>;
 }
 
@@ -120,6 +116,7 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
   return <section className="machine-group flex flex-col gap-px" aria-label={t("PC {name}", { name: machine.name })}>
     <HeadingRow
       className="machine-header"
+      band
       label={machine.name}
       expanded={!collapsed}
       onToggle={toggle}
