@@ -377,8 +377,6 @@ export const JA: Record<string, string> = {
   "Opus, 1M context": "Opus、100 万コンテキスト",
   "Opus to plan, Sonnet to build": "Opus で計画、Sonnet で実装",
   "Uploading file…": "ファイルをアップロードしています…",
-  "Resize message box": "入力欄のサイズを変更",
-  "Drag to resize · double-click to reset": "ドラッグでサイズ変更 · ダブルクリックでリセット",
   "Slash commands": "スラッシュコマンド",
   "Built in": "組み込み",
   "User": "ユーザー",

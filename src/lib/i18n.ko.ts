@@ -375,8 +375,6 @@ export const KO: Record<string, string> = {
   "Opus, 1M context": "Opus, 100만 컨텍스트",
   "Opus to plan, Sonnet to build": "Opus로 계획, Sonnet으로 구현",
   "Uploading file…": "파일 올리는 중…",
-  "Resize message box": "입력창 크기 조절",
-  "Drag to resize · double-click to reset": "끌어서 크기 조절 · 두 번 클릭하면 초기화",
   "Slash commands": "슬래시 명령",
   "Built in": "기본",
   "User": "사용자",

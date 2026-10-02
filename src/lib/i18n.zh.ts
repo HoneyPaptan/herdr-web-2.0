@@ -379,8 +379,6 @@ export const ZH: Record<string, string> = {
   "Opus, 1M context": "Opus，100 万上下文",
   "Opus to plan, Sonnet to build": "Opus 规划，Sonnet 执行",
   "Uploading file…": "正在上传文件…",
-  "Resize message box": "调整输入框大小",
-  "Drag to resize · double-click to reset": "拖动以调整大小 · 双击重置",
   "Slash commands": "斜杠命令",
   "Built in": "内置",
   "User": "用户",

@@ -19,45 +19,6 @@
   left: calc(var(--space-4) + max(0px, (100% - 2 * var(--space-4) - var(--content-w)) / 2));
 }
 
-.composer-resize {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  z-index: 1;
-  display: grid;
-  place-items: end center;
-  width: 48px;
-  height: 12px;
-  transform: translateX(-50%);
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.composer-resize::before {
-  content: "";
-  width: var(--space-8);
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--border-strong);
-  transform: translateY(2px);
-  pointer-events: none;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.composer-resize:hover::before, .composer-resize:active::before, .composer-resize:focus-visible::before {
-  background: var(--highlight);
-}
-
-.composer-resize:focus-visible {
-  outline-offset: 0;
-  border-radius: var(--radius-sm);
-}
-
-.composer-text.is-sized {
-  max-height: min(50vh, 480px);
-  max-height: min(calc(var(--app-height, 100dvh) / 2), 480px);
-}
-
 .composer-attachment button {
   flex: none;
   cursor: pointer;
@@ -204,16 +165,6 @@
     min-height: calc(var(--touch-target) + var(--space-1));
   }
 
-  .composer-resize {
-    width: 64px;
-    height: 20px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .composer-resize::before {
-    transition: none;
-  }
 }
 
 .composer-queue {
