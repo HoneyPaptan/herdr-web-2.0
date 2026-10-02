@@ -1208,6 +1208,7 @@ export function PaneTerminal({
             : pendingAnswer?.promptId === answering.id ? t("Confirm your answer in the card above, or type another…") : answerHint(answering)}
           suggestion={chatPrompt?.pane !== paneId && chatSuggestion?.pane === paneId ? chatSuggestion.value : null}
           onSend={composerSend}
+          onCommand={sendTerminalLine}
           onAbort={abortTurn}
           onUploadImage={uploadImage}
         />

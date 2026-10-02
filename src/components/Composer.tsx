@@ -52,6 +52,7 @@ export interface ComposerProps {
   answerHint?: string | null;
   suggestion?: string | null;
   onSend: (text: string) => boolean | string | Promise<boolean | string>;
+  onCommand: (text: string) => boolean | string | Promise<boolean | string>;
   onAbort: () => void;
   onUploadImage: (file: File) => Promise<string>;
 }
@@ -147,6 +148,7 @@ export function Composer({
   answerHint = null,
   suggestion = null,
   onSend,
+  onCommand,
   onAbort,
   onUploadImage,
 }: ComposerProps) {
@@ -416,7 +418,7 @@ export function Composer({
     }
   }, [attachments, connected, dictation.forget, draftKey, onSend, sending, text, uploading]);
 
-  const sendQuick = useCallback((reply: string) => {
+  const sendWith = useCallback((send: (text: string) => boolean | string | Promise<boolean | string>, reply: string) => {
     if (!connected || sending) return;
     setNote(null);
     const settle = (result: boolean | string): void => {
@@ -424,14 +426,16 @@ export function Composer({
     };
     if (!composerDrafts.begin(draftKey)) return;
     try {
-      const result = onSend(reply);
+      const result = send(reply);
       if (!(result instanceof Promise)) { settle(result); composerDrafts.end(draftKey); return; }
       void result.then(settle).catch(() => { if (mounted.current) setNote(t("Not confirmed. Check the terminal before sending again.")); }).finally(() => composerDrafts.end(draftKey));
     } catch {
       composerDrafts.end(draftKey);
       if (mounted.current) setNote(t("Not confirmed. Check the terminal before sending again."));
     }
-  }, [connected, draftKey, onSend, sending]);
+  }, [connected, draftKey, sending]);
+  const sendQuick = useCallback((reply: string) => sendWith(onSend, reply), [onSend, sendWith]);
+  const runCommand = useCallback((command: string) => sendWith(onCommand, command), [onCommand, sendWith]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -707,7 +711,7 @@ export function Composer({
           model={metadata?.model ?? null}
           effort={metadata?.reasoning_effort ?? null}
           disabled={!connected || sending || isWorking}
-          onCommand={sendQuick}
+          onCommand={runCommand}
         />
         <span className={cn("inline-flex shrink-0 items-center gap-1 px-1.5 text-ui", agentStatus === "blocked" ? "text-accent-command" : "text-muted-foreground")}>
           {isWorking && <Orb state="listening" aria-hidden="true" className="shrink-0" />}
