@@ -6,8 +6,9 @@ import "./SettingsDialog.css";
 import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { SHORTCUTS, formatKeys, shortcutKeys, shortcutConflict } from "../lib/shortcuts.ts";
-import { CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, TERMINAL_FONT_MAX, TERMINAL_FONT_MIN, TERMINAL_WHEEL_SPEED_MAX, TERMINAL_WHEEL_SPEED_MIN, useSettings, forgetPaneViews } from "../lib/settings.ts";
-import { THEMES } from "../lib/theme.ts";
+import { CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, type TerminalCursor, type ThemeSetting, UI_FONT_MAX, UI_FONT_MIN, uiFontSize, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, TERMINAL_FONT_MAX, TERMINAL_FONT_MIN, TERMINAL_WHEEL_SPEED_MAX, TERMINAL_WHEEL_SPEED_MIN, useSettings, forgetPaneViews } from "../lib/settings.ts";
+import { hasLightMode, THEMES } from "../lib/theme.ts";
+import { ChoicePills, ThemeSwatches, type Choice } from "./SettingsChoices.tsx";
 import { LANGUAGE_NAMES, LANGUAGE_SETTINGS, useT } from "../lib/i18n.ts";
 import { FONT_FAMILY_MAX_CHARS, sanitizeFontFamily } from "../lib/fontFamily.ts";
 import type { UpdatesModel } from "../lib/updates.ts";
@@ -39,6 +40,25 @@ function Toggle({ checked, label, onChange }: { checked: boolean; label: string;
     <button type="button" className="settings-toggle" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}>
       <span className="settings-toggle-thumb" />
     </button>
+  );
+}
+
+function Stepper({ label, value, min, max, unit, decreaseLabel, increaseLabel, onChange }: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  unit: string;
+  decreaseLabel: string;
+  increaseLabel: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="settings-stepper" aria-label={label}>
+      <button type="button" className="icon-button" aria-label={decreaseLabel} disabled={value <= min} onClick={() => onChange(value - 1)}><Minus /></button>
+      <output aria-live="polite">{value}{unit}</output>
+      <button type="button" className="icon-button" aria-label={increaseLabel} disabled={value >= max} onClick={() => onChange(value + 1)}><Plus /></button>
+    </div>
   );
 }
 
@@ -138,11 +158,15 @@ function UsageAccounts({ providers }: { providers: readonly ProviderUsage[] }) {
 }
 
 export function SettingsDialog({ open, onClose, updates, auth, onEnableNotifications }: SettingsDialogProps) {
-  const { settings, update } = useSettings();
+  const { settings, update, resolvedTheme } = useSettings();
   // the accounts to order and hide: the same report the meters show, from the server's cache
   const usage = useUsage(open && settings.showUsage);
   const t = useT();
   const installPrompt = useInstallPrompt();
+  const darkOnly = !hasLightMode(settings.palette);
+  const paletteLabel = THEMES.find((theme) => theme.id === settings.palette)?.label ?? settings.palette;
+  const modes: Choice<ThemeSetting>[] = [{ id: "dark", label: t("Dark") }, { id: "light", label: t("Light") }, { id: "system", label: t("System") }];
+  const cursors: Choice<TerminalCursor>[] = [{ id: "block", label: t("Block") }, { id: "bar", label: t("Bar") }, { id: "underline", label: t("Underline") }];
   const firstControlRef = useRef<HTMLButtonElement>(null);
   // server-side: the web server updates PC bridges, so it keeps this choice
   const [pcSettings, setPcSettings] = useState<MachineSettings | null>(null);
@@ -222,24 +246,12 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
           <section className="settings-section">
             <h3>{t("Appearance")}</h3>
             <div className="settings-row">
-              <div><span className="settings-label">{t("Theme")}</span><span className="settings-description">{t("Choose the app color scheme")}</span></div>
-              <div className="segmented" aria-label={t("Theme")}>
-                {(["dark", "light", "system"] as const).map((theme, index) => (
-                  <button key={theme} ref={index === 0 ? firstControlRef : undefined} type="button" aria-pressed={settings.theme === theme} onClick={() => update({ theme })}>
-                    {t(theme === "dark" ? "Dark" : theme === "light" ? "Light" : "System")}
-                  </button>
-                ))}
-              </div>
+              <div><span className="settings-label">{t("Theme")}</span><span className="settings-description">{darkOnly ? t("{theme} only comes in dark", { theme: paletteLabel }) : t("Choose the app color scheme")}</span></div>
+              <ChoicePills label={t("Theme")} value={darkOnly ? "dark" : settings.theme} options={modes} disabled={darkOnly} firstRef={firstControlRef} onChange={(theme) => update({ theme })} />
             </div>
-            <div className="settings-row">
-              <div><span className="settings-label">{t("Colors")}</span><span className="settings-description">{t("One palette for the app and the terminal")}</span></div>
-              <div className="segmented" aria-label={t("Colors")}>
-                {THEMES.map((theme) => (
-                  <button key={theme.id} type="button" aria-pressed={settings.palette === theme.id} onClick={() => update({ palette: theme.id })}>
-                    {theme.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-col gap-2.5 py-1">
+              <div className="flex flex-col"><span className="settings-label">{t("Colors")}</span><span className="settings-description">{t("One palette for the app and the terminal")}</span></div>
+              <ThemeSwatches label={t("Colors")} value={settings.palette} mode={resolvedTheme} onChange={(palette) => update({ palette })} />
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Density")}</span><span className="settings-description">{t("Adjust spacing throughout the interface")}</span></div>
@@ -250,6 +262,10 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="settings-row">
+              <div><span className="settings-label">{t("Interface text size")}</span><span className="settings-description">{t("Menus, the header and the sidebar")}</span></div>
+              <Stepper label={t("Interface text size")} value={uiFontSize(settings)} min={UI_FONT_MIN} max={UI_FONT_MAX} unit="px" decreaseLabel={t("Smaller interface text")} increaseLabel={t("Larger interface text")} onChange={(size) => update({ uiFontSize: size })} />
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Language")}</span><span className="settings-description">{t("Follows the browser unless you choose one")}</span></div>
@@ -273,11 +289,7 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Terminal font size")}</span><span className="settings-description">{t("Applied to every terminal pane")}</span></div>
-              <div className="settings-stepper" aria-label={t("Terminal font size")}>
-                <button type="button" className="icon-button" aria-label={t("Decrease terminal font size")} disabled={settings.terminalFontSize <= TERMINAL_FONT_MIN} onClick={() => update({ terminalFontSize: settings.terminalFontSize - 1 })}><Minus /></button>
-                <output aria-live="polite">{settings.terminalFontSize}px</output>
-                <button type="button" className="icon-button" aria-label={t("Increase terminal font size")} disabled={settings.terminalFontSize >= TERMINAL_FONT_MAX} onClick={() => update({ terminalFontSize: settings.terminalFontSize + 1 })}><Plus /></button>
-              </div>
+              <Stepper label={t("Terminal font size")} value={settings.terminalFontSize} min={TERMINAL_FONT_MIN} max={TERMINAL_FONT_MAX} unit="px" decreaseLabel={t("Decrease terminal font size")} increaseLabel={t("Increase terminal font size")} onChange={(terminalFontSize) => update({ terminalFontSize })} />
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Terminal font")}</span><span className="settings-description">{t("Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>
@@ -285,15 +297,19 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Wheel scroll speed")}</span><span className="settings-description">{t("How far one turn of the wheel scrolls the terminal")}</span></div>
-              <div className="settings-stepper" aria-label={t("Wheel scroll speed")}>
-                <button type="button" className="icon-button" aria-label={t("Slower wheel scrolling")} disabled={settings.terminalWheelSpeed <= TERMINAL_WHEEL_SPEED_MIN} onClick={() => update({ terminalWheelSpeed: settings.terminalWheelSpeed - 1 })}><Minus /></button>
-                <output aria-live="polite">{settings.terminalWheelSpeed}×</output>
-                <button type="button" className="icon-button" aria-label={t("Faster wheel scrolling")} disabled={settings.terminalWheelSpeed >= TERMINAL_WHEEL_SPEED_MAX} onClick={() => update({ terminalWheelSpeed: settings.terminalWheelSpeed + 1 })}><Plus /></button>
-              </div>
+              <Stepper label={t("Wheel scroll speed")} value={settings.terminalWheelSpeed} min={TERMINAL_WHEEL_SPEED_MIN} max={TERMINAL_WHEEL_SPEED_MAX} unit="×" decreaseLabel={t("Slower wheel scrolling")} increaseLabel={t("Faster wheel scrolling")} onChange={(terminalWheelSpeed) => update({ terminalWheelSpeed })} />
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("GPU rendering")}</span><span className="settings-description">{t("Draws the terminal with WebGL for smoother scrolling. Turn off if characters look misaligned.")}</span></div>
               <Toggle label={t("GPU rendering")} checked={settings.terminalGpu} onChange={(terminalGpu) => update({ terminalGpu })} />
+            </div>
+            <div className="settings-row">
+              <div><span className="settings-label">{t("Cursor shape")}</span><span className="settings-description">{t("How the terminal marks where you type")}</span></div>
+              <ChoicePills label={t("Cursor shape")} value={settings.terminalCursorStyle} options={cursors} onChange={(terminalCursorStyle) => update({ terminalCursorStyle })} />
+            </div>
+            <div className="settings-row">
+              <div><span className="settings-label">{t("Blinking cursor")}</span><span className="settings-description">{t("Turn off if the blink is distracting")}</span></div>
+              <Toggle label={t("Blinking cursor")} checked={settings.terminalCursorBlink} onChange={(terminalCursorBlink) => update({ terminalCursorBlink })} />
             </div>
             <div className="settings-row"><label htmlFor="terminal-input-mode">{t("Terminal input mode")}</label>
               <select id="terminal-input-mode" className="input" value={settings.terminalInputMode} onChange={(event) => update({ terminalInputMode: event.target.value as "auto" | "line" | "direct" })}>
@@ -403,11 +419,7 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Chat font size")}</span><span className="settings-description">{t("Messages, code and prompt cards in the chat view")}</span></div>
-              <div className="settings-stepper" aria-label={t("Chat font size")}>
-                <button type="button" className="icon-button" aria-label={t("Decrease chat font size")} disabled={chatFontSize(settings) <= CHAT_FONT_MIN} onClick={() => update({ chatFontSize: chatFontSize(settings) - 1 })}><Minus /></button>
-                <output aria-live="polite">{chatFontSize(settings)}px</output>
-                <button type="button" className="icon-button" aria-label={t("Increase chat font size")} disabled={chatFontSize(settings) >= CHAT_FONT_MAX} onClick={() => update({ chatFontSize: chatFontSize(settings) + 1 })}><Plus /></button>
-              </div>
+              <Stepper label={t("Chat font size")} value={chatFontSize(settings)} min={CHAT_FONT_MIN} max={CHAT_FONT_MAX} unit="px" decreaseLabel={t("Decrease chat font size")} increaseLabel={t("Increase chat font size")} onChange={(chatFontSize) => update({ chatFontSize })} />
             </div>
             <div className="settings-row">
               <div><span className="settings-label">{t("Chat font")}</span><span className="settings-description">{t("Message text; code stays monospace. Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>

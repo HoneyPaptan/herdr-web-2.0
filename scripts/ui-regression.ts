@@ -234,7 +234,7 @@ try {
 
   await page.keyboard.press("Control+Shift+Comma");
   await page.getByRole("dialog", { name: "Settings" }).waitFor();
-  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await page.getByRole("radio", { name: "Light", exact: true }).click();
   assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
   await page.getByRole("button", { name: "Close settings", exact: true }).click();
   console.log("PASS settings shortcut and theme");

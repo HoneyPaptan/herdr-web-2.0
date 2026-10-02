@@ -365,3 +365,9 @@
   --accent-thinking: #0088ff;
   --vibrancy-alpha: 65%;
 }
+
+.theme-swatch {
+  background-image:
+    linear-gradient(135deg, transparent 0 52%, var(--surface-card) 52% 100%),
+    linear-gradient(var(--background), var(--background));
+}

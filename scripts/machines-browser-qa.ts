@@ -82,7 +82,7 @@ try {
   await dialog.getByRole("button", { name: "Close PC setup" }).click();
   await page.screenshot({ path: join(evidence, "desktop-dark.png") });
   await page.locator(".sidebar-footer").getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("dialog", { name: "Settings", exact: true }).getByRole("button", { name: "Light", exact: true }).click();
+  await page.getByRole("dialog", { name: "Settings", exact: true }).getByRole("radio", { name: "Light", exact: true }).click();
   await page.getByRole("button", { name: "Close settings", exact: true }).click();
   await page.screenshot({ path: join(evidence, "desktop-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,7 +97,7 @@ try {
   await page.getByRole("button", { name: "Close workspace list", exact: true }).click();
   await page.locator(".sidebar-footer").getByRole("button", { name: "Settings", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
-  await settings.getByRole("button", { name: "Dark", exact: true }).click();
+  await settings.getByRole("radio", { name: "Dark", exact: true }).click();
   await settings.getByRole("button", { name: "Close settings", exact: true }).click();
   await page.getByRole("button", { name: "Open workspace list", exact: true }).click();
   await page.waitForFunction(() => Math.abs(document.querySelector(".sidebar.is-open")!.getBoundingClientRect().x) < 1);
