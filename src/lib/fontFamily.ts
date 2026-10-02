@@ -49,6 +49,11 @@ export function terminalFontStack(family: string): string {
   return chosen === "" ? TERMINAL_FONT_STACK : `${TERMINAL_SYMBOLS_FONT}, ${chosen}, ${TERMINAL_TEXT_FONTS}`;
 }
 
+export function uiFontStack(family: string): string | null {
+  const chosen = sanitizeFontFamily(family);
+  return chosen === "" ? null : `${chosen}, var(--font-ui-default)`;
+}
+
 export function chatFontStack(family: string): string | null {
   const chosen = sanitizeFontFamily(family);
   return chosen === "" ? null : `${chosen}, ${CHAT_FONT_STACK}`;

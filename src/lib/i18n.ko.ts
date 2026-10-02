@@ -62,6 +62,8 @@ export const KO: Record<string, string> = {
   "Slower wheel scrolling": "휠 스크롤 느리게",
   "Faster wheel scrolling": "휠 스크롤 빠르게",
   "Terminal font": "터미널 글꼴",
+  "Interface font": "인터페이스 글꼴",
+  "Fonts installed on this PC work on every device. Type any name; a missing font falls back to the default.": "이 PC에 설치된 글꼴은 모든 기기에서 쓸 수 있습니다. 이름을 직접 입력할 수도 있으며, 없는 글꼴은 기본값으로 돌아갑니다.",
   "Comma-separated, tried in order. A font this device does not have falls back to the default.": "쉼표로 구분하며 앞에서부터 차례로 사용합니다. 이 기기에 없는 글꼴은 기본 글꼴로 대체합니다.",
   "Composer": "입력창",
   "Enter sends": "Enter로 보내기",

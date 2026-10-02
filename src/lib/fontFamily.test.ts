@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
-import { chatFontStack, loadFontStack, terminalBootStack, TERMINAL_FONT_STACK, terminalFontStack } from "./fontFamily.ts";
+import { chatFontStack, loadFontStack, terminalBootStack, TERMINAL_FONT_STACK, terminalFontStack, uiFontStack } from "./fontFamily.ts";
 
 describe("terminal font stack", () => {
   it("is the built-in stack when nothing is typed", () => {
@@ -28,6 +28,16 @@ describe("chat font stack", () => {
 
   it("puts the typed list in front of the UI font", () => {
     expect(chatFontStack("Pretendard, Noto Sans KR")).toBe('Pretendard, "Noto Sans KR", var(--font-ui)');
+  });
+});
+
+describe("interface font stack", () => {
+  it("keeps the shipped stack when nothing is typed", () => {
+    expect(uiFontStack("")).toBeNull();
+  });
+
+  it("puts the typed list in front of the shipped stack, never the UI variable itself", () => {
+    expect(uiFontStack("Inter Display")).toBe('"Inter Display", var(--font-ui-default)');
   });
 });
 

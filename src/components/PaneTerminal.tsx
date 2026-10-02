@@ -29,6 +29,7 @@ import type { PaneView } from "../lib/actions.ts";
 import { useSettings, type Palette, type ResolvedTheme } from "../lib/settings.ts";
 import { TERMINAL_MIN_CONTRAST, terminalTheme } from "../lib/theme.ts";
 import { loadFontStack, terminalBootStack, terminalFontStack } from "../lib/fontFamily.ts";
+import { registerHostFonts } from "../lib/hostFonts.ts";
 import { useT } from "../lib/i18n.ts";
 import { isAppShortcut } from "../lib/shortcuts.ts";
 import { OpenFileContext } from "../lib/filePaths.ts";
@@ -830,9 +831,9 @@ export function PaneTerminal({
       const pane = paneRef.current;
       if (pane) socketRef.current?.resize(pane, term.cols, term.rows, true);
     };
-    void loadFontStack(fontFamily, terminalFontSize).then(apply);
+    void registerHostFonts(terminalFontFamily).then(() => loadFontStack(fontFamily, terminalFontSize)).then(apply);
     return () => { superseded = true; };
-  }, [terminalFontSize, fontFamily]);
+  }, [terminalFontSize, fontFamily, terminalFontFamily]);
 
   useEffect(() => {
     if (chatView || observeRef.current || fixedGridRef.current) return;

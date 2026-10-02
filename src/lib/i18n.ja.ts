@@ -64,6 +64,8 @@ export const JA: Record<string, string> = {
   "Slower wheel scrolling": "ホイールスクロールを遅く",
   "Faster wheel scrolling": "ホイールスクロールを速く",
   "Terminal font": "ターミナルのフォント",
+  "Interface font": "インターフェースのフォント",
+  "Fonts installed on this PC work on every device. Type any name; a missing font falls back to the default.": "この PC に入っているフォントはどの端末でも使えます。名前を直接入力することもでき、見つからないフォントは既定に戻ります。",
   "Comma-separated, tried in order. A font this device does not have falls back to the default.": "カンマ区切りで、先頭から順に使います。このデバイスにないフォントは既定のフォントで表示します。",
   "Composer": "入力欄",
   "Enter sends": "Enter で送信",

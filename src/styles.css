@@ -32,7 +32,8 @@
   --shadow-drawer: 0 0 40px oklch(0 0 0 / 35%);
   --shadow-pop: 0 10px 15px -3px oklch(0 0 0 / 20%), 0 4px 6px -4px oklch(0 0 0 / 20%), 0 0 0 1px var(--border);
 
-  --font-ui: "Geist Variable", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-ui-default: "Geist Variable", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-ui: var(--font-ui-default);
   --font-mono: "Symbols Nerd Font Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "D2Coding", monospace;
   --fs-2xs: 11px;
   --fs-xs: 12px;

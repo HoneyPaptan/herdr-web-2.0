@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Minus, Plus, Star, X } from "lucide-react";
 
 import "./SettingsDialog.css";
@@ -17,11 +17,12 @@ import { ChoicePills, ThemeSwatches, type Choice } from "./SettingsChoices.tsx";
 import { InlineRow, SETTINGS_INPUT, SETTINGS_SELECT, SettingDescription, SettingNote, SettingsSection, SettingsTabs, StackedRow, type SettingsTab } from "./SettingsLayout.tsx";
 import { LANGUAGE_NAMES, LANGUAGE_SETTINGS, useT } from "../lib/i18n.ts";
 import { FONT_FAMILY_MAX_CHARS, sanitizeFontFamily } from "../lib/fontFamily.ts";
+import { hostFonts } from "../lib/hostFonts.ts";
 import type { UpdatesModel } from "../lib/updates.ts";
 import type { MachineSettings } from "../../shared/machines.ts";
 import { fetchRemoteAccess, fetchVoiceStatus, machineRequest, saveVoiceConfig } from "../lib/api.ts";
 import { isLoopbackHost, phonePlan } from "../lib/phone.ts";
-import type { HealthAuth, ProviderUsage, RemoteAccess } from "../../shared/protocol.ts";
+import type { HealthAuth, HostFontFamily, ProviderUsage, RemoteAccess } from "../../shared/protocol.ts";
 import type { VoiceStatus } from "../../shared/voice.ts";
 import { VOICE_CONFIG_EVENT } from "../lib/voice.ts";
 import { moveInOrder, orderProviders, PROVIDER_MARK, PROVIDER_NAME, usageName, useUsage } from "../lib/usage.ts";
@@ -78,7 +79,19 @@ function isImeEnter(event: React.KeyboardEvent): boolean {
   return event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
 }
 
-function FontFamilyInput({ value, label, onCommit }: { value: string; label: string; onCommit: (family: string) => void }) {
+function useHostFamilies(monoOnly: boolean): string[] {
+  const [families, setFamilies] = useState<HostFontFamily[]>([]);
+  useEffect(() => {
+    let live = true;
+    void hostFonts().then((report) => { if (live) setFamilies(report.families); });
+    return () => { live = false; };
+  }, []);
+  return families.filter((family) => !monoOnly || family.mono).map((family) => family.family);
+}
+
+function FontFamilyInput({ value, label, monoOnly = false, onCommit }: { value: string; label: string; monoOnly?: boolean; onCommit: (family: string) => void }) {
+  const listId = useId();
+  const families = useHostFamilies(monoOnly);
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const commit = (): void => {
@@ -90,23 +103,31 @@ function FontFamilyInput({ value, label, onCommit }: { value: string; label: str
   commitRef.current = commit;
   useEffect(() => () => commitRef.current(), []);
   return (
-    <input
-      className={cn("settings-font-input", SETTINGS_INPUT)}
-      value={draft}
-      placeholder={FONT_FAMILY_PLACEHOLDER}
-      maxLength={FONT_FAMILY_MAX_CHARS}
-      aria-label={label}
-      spellCheck={false}
-      autoCapitalize="off"
-      autoCorrect="off"
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" || isImeEnter(event)) return;
-        event.preventDefault();
-        commit();
-      }}
-    />
+    <>
+      <input
+        className={cn("settings-font-input", SETTINGS_INPUT)}
+        list={families.length > 0 ? listId : undefined}
+        value={draft}
+        placeholder={FONT_FAMILY_PLACEHOLDER}
+        maxLength={FONT_FAMILY_MAX_CHARS}
+        aria-label={label}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || isImeEnter(event)) return;
+          event.preventDefault();
+          commit();
+        }}
+      />
+      {families.length > 0 && (
+        <datalist id={listId}>
+          {families.map((family) => <option key={family} value={family} />)}
+        </datalist>
+      )}
+    </>
   );
 }
 
@@ -346,6 +367,9 @@ function AppearanceTab() {
       <InlineRow label={t("Interface text size")} description={t("Menus, the header and the sidebar")}>
         <Stepper label={t("Interface text size")} value={uiFontSize(settings)} min={UI_FONT_MIN} max={UI_FONT_MAX} unit="px" decreaseLabel={t("Smaller interface text")} increaseLabel={t("Larger interface text")} onChange={(size) => update({ uiFontSize: size })} />
       </InlineRow>
+      <StackedRow label={t("Interface font")} description={t("Fonts installed on this PC work on every device. Type any name; a missing font falls back to the default.")}>
+        <FontFamilyInput value={settings.uiFontFamily} label={t("Interface font")} onCommit={(uiFontFamily) => update({ uiFontFamily })} />
+      </StackedRow>
       <StackedRow label={t("Language")} description={t("Follows the browser unless you choose one")}>
         <ChoicePills label={t("Language")} value={settings.language} options={languages} onChange={(language) => update({ language })} />
       </StackedRow>
@@ -367,7 +391,7 @@ function TerminalTab() {
         <Stepper label={t("Terminal font size")} value={settings.terminalFontSize} min={TERMINAL_FONT_MIN} max={TERMINAL_FONT_MAX} unit="px" decreaseLabel={t("Decrease terminal font size")} increaseLabel={t("Increase terminal font size")} onChange={(terminalFontSize) => update({ terminalFontSize })} />
       </InlineRow>
       <StackedRow label={t("Terminal font")} description={t("Comma-separated, tried in order. A font this device does not have falls back to the default.")}>
-        <FontFamilyInput value={settings.terminalFontFamily} label={t("Terminal font")} onCommit={(terminalFontFamily) => update({ terminalFontFamily })} />
+        <FontFamilyInput value={settings.terminalFontFamily} label={t("Terminal font")} monoOnly onCommit={(terminalFontFamily) => update({ terminalFontFamily })} />
       </StackedRow>
       <InlineRow label={t("Wheel scroll speed")} description={t("How far one turn of the wheel scrolls the terminal")}>
         <Stepper label={t("Wheel scroll speed")} value={settings.terminalWheelSpeed} min={TERMINAL_WHEEL_SPEED_MIN} max={TERMINAL_WHEEL_SPEED_MAX} unit="×" decreaseLabel={t("Slower wheel scrolling")} increaseLabel={t("Faster wheel scrolling")} onChange={(terminalWheelSpeed) => update({ terminalWheelSpeed })} />

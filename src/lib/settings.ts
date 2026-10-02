@@ -1,7 +1,8 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { hasDictionary, LANGUAGE_SETTINGS, loadDictionary, LOCALE_TAGS, resolveLanguage, setCurrentLanguage, type Language, type LanguageSetting } from "./i18n.ts";
 import type { AlertPrefs, DoneAlerts } from "../../shared/notify-policy.ts";
-import { chatFontStack, sanitizeFontFamily } from "./fontFamily.ts";
+import { chatFontStack, sanitizeFontFamily, uiFontStack } from "./fontFamily.ts";
+import { registerHostFonts } from "./hostFonts.ts";
 import { coerceTheme, DEFAULT_THEME, modeFor, themeColor, type ThemeName } from "./theme.ts";
 
 export type ThemeSetting = "dark" | "light" | "system";
@@ -32,6 +33,7 @@ export interface Settings {
   terminalCursorStyle: TerminalCursor;
   terminalCursorBlink: boolean;
   uiFontSize: number | null;
+  uiFontFamily: string;
   chatFontSize: number | null;
   chatFontFamily: string;
   enterSends: boolean;
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   terminalCursorStyle: "block",
   terminalCursorBlink: true,
   uiFontSize: null,
+  uiFontFamily: "",
   chatFontSize: null,
   chatFontFamily: "",
   enterSends: true,
@@ -159,6 +162,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       : DEFAULT_SETTINGS.terminalWheelSpeed,
     chatFontSize: clampedOrNull(record["chatFontSize"], CHAT_FONT_MIN, CHAT_FONT_MAX),
     uiFontSize: clampedOrNull(record["uiFontSize"], UI_FONT_MIN, UI_FONT_MAX),
+    uiFontFamily: sanitizeFontFamily(record["uiFontFamily"]),
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
     terminalGpu: typeof record["terminalGpu"] === "boolean" ? record["terminalGpu"] : DEFAULT_SETTINGS.terminalGpu,
     terminalCursorStyle: TERMINAL_CURSORS.includes(record["terminalCursorStyle"] as TerminalCursor) ? record["terminalCursorStyle"] as TerminalCursor : DEFAULT_SETTINGS.terminalCursorStyle,
@@ -213,6 +217,11 @@ export function resolveTheme(setting: ThemeSetting): ResolvedTheme {
   return typeof window !== "undefined" && window.matchMedia?.(DARK_QUERY).matches === false ? "light" : "dark";
 }
 
+function setFontProperty(root: HTMLElement, property: string, stack: string | null): void {
+  if (stack === null) root.style.removeProperty(property);
+  else root.style.setProperty(property, stack);
+}
+
 function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: Language): void {
   const root = document.documentElement;
   root.lang = LOCALE_TAGS[language];
@@ -223,9 +232,9 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   root.style.setProperty("--chat-scale", String(chatFontSize(settings) / CHAT_BASE_FONT[settings.density]));
   if (settings.uiFontSize === null) root.style.removeProperty("--fs-ui");
   else root.style.setProperty("--fs-ui", `${settings.uiFontSize}px`);
-  const chatFont = chatFontStack(settings.chatFontFamily);
-  if (chatFont === null) root.style.removeProperty("--font-chat");
-  else root.style.setProperty("--font-chat", chatFont);
+  setFontProperty(root, "--font-ui", uiFontStack(settings.uiFontFamily));
+  setFontProperty(root, "--font-chat", chatFontStack(settings.chatFontFamily));
+  void registerHostFonts(`${settings.uiFontFamily}, ${settings.chatFontFamily}`);
   root.style.colorScheme = resolved;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor(settings.palette, resolved));
 }

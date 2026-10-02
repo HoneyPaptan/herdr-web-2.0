@@ -66,6 +66,8 @@ export const ZH: Record<string, string> = {
   "Slower wheel scrolling": "滚轮滚动更慢",
   "Faster wheel scrolling": "滚轮滚动更快",
   "Terminal font": "终端字体",
+  "Interface font": "界面字体",
+  "Fonts installed on this PC work on every device. Type any name; a missing font falls back to the default.": "这台电脑上安装的字体在所有设备上都能使用。也可以输入任意名称，找不到的字体会回退到默认字体。",
   "Comma-separated, tried in order. A font this device does not have falls back to the default.": "以逗号分隔，按顺序使用。此设备上没有的字体会回退到默认字体。",
   "Composer": "输入框",
   "Enter sends": "按 Enter 发送",
