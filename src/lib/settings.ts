@@ -40,6 +40,7 @@ export interface Settings {
   terminalWheelSpeed: number;
   /** fonts tried before the built-in terminal stack, as a CSS font-family list; "" keeps the built-in one */
   terminalFontFamily: string;
+  terminalGpu: boolean;
   /** chat text size in px (its body text; the rest scales with it); null follows the density */
   chatFontSize: number | null;
   /** fonts tried before the UI font in the chat's prose (code stays mono), as a CSS font-family list; "" keeps the UI font */
@@ -93,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   terminalFontSize: 13,
   terminalWheelSpeed: 1,
   terminalFontFamily: "",
+  terminalGpu: true,
   chatFontSize: null,
   chatFontFamily: "",
   enterSends: true,
@@ -180,6 +182,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       ? Math.min(CHAT_FONT_MAX, Math.max(CHAT_FONT_MIN, Math.round(chatFont)))
       : DEFAULT_SETTINGS.chatFontSize,
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
+    terminalGpu: typeof record["terminalGpu"] === "boolean" ? record["terminalGpu"] : DEFAULT_SETTINGS.terminalGpu,
     chatFontFamily: sanitizeFontFamily(record["chatFontFamily"]),
     enterSends: typeof record["enterSends"] === "boolean" ? record["enterSends"] : DEFAULT_SETTINGS.enterSends,
     showThinking: typeof record["showThinking"] === "boolean" ? record["showThinking"] : DEFAULT_SETTINGS.showThinking,

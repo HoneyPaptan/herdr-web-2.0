@@ -50,6 +50,8 @@ export const JA: Record<string, string> = {
   "Increase terminal font size": "ターミナルの文字を大きく",
   "Wheel scroll speed": "ホイールのスクロール速度",
   "How far one turn of the wheel scrolls the terminal": "ホイール1回でターミナルが動く量",
+  "GPU rendering": "GPU描画",
+  "Draws the terminal with WebGL for smoother scrolling. Turn off if characters look misaligned.": "WebGLでターミナルを描画し、スクロールを滑らかにします。文字の表示が崩れる場合はオフにしてください。",
   "Slower wheel scrolling": "ホイールスクロールを遅く",
   "Faster wheel scrolling": "ホイールスクロールを速く",
   "Terminal font": "ターミナルのフォント",

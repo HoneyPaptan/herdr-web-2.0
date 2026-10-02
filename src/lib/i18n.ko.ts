@@ -48,6 +48,8 @@ export const KO: Record<string, string> = {
   "Increase terminal font size": "터미널 글자 크게",
   "Wheel scroll speed": "휠 스크롤 속도",
   "How far one turn of the wheel scrolls the terminal": "휠을 한 번 굴릴 때 터미널이 움직이는 정도",
+  "GPU rendering": "GPU 렌더링",
+  "Draws the terminal with WebGL for smoother scrolling. Turn off if characters look misaligned.": "WebGL로 터미널을 그려 스크롤을 더 부드럽게 합니다. 글자가 어긋나 보이면 끄세요.",
   "Slower wheel scrolling": "휠 스크롤 느리게",
   "Faster wheel scrolling": "휠 스크롤 빠르게",
   "Terminal font": "터미널 글꼴",

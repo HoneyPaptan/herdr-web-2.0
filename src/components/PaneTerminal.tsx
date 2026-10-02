@@ -32,7 +32,7 @@ import { useT } from "../lib/i18n.ts";
 import { isAppShortcut } from "../lib/shortcuts.ts";
 import { OpenFileContext } from "../lib/filePaths.ts";
 import { fileUriPath, terminalFileLinkProvider } from "../lib/terminalFileLinks.ts";
-import { adjustTerminalGlyphs } from "../lib/terminalGlyphs.ts";
+import { startTerminalRenderer } from "../lib/terminalRenderer.ts";
 
 /** How long a resize must rest before the grid refits and the pty follows it. */
 const RESIZE_SETTLE_MS = 120;
@@ -61,6 +61,7 @@ export interface PaneTerminalProps {
   terminalWheelSpeed: number;
   /** fonts tried before the built-in stack (settings); "" keeps the built-in one */
   terminalFontFamily: string;
+  terminalGpu: boolean;
   /** the resolved UI theme: the xterm theme object mirrors it */
   theme: ResolvedTheme;
   /** the chrome palette (settings.ts): the terminal cursor and selection follow it */
@@ -107,6 +108,7 @@ export function PaneTerminal({
   terminalFontSize,
   terminalWheelSpeed,
   terminalFontFamily,
+  terminalGpu,
   theme,
   palette,
   role = "interact",
@@ -298,7 +300,6 @@ export function PaneTerminal({
     const compositionEnd = () => setComposing(false);
     host.addEventListener("compositionstart", compositionStart);
     host.addEventListener("compositionend", compositionEnd);
-    const stopGlyphs = adjustTerminalGlyphs(term);
     // Let the browser emit a paste event, which xterm already handles (including
     // bracketed paste). Otherwise Ctrl+V becomes 0x16, triggering the agent's
     // image-paste shortcut against the server's clipboard and canceling text paste.
@@ -950,7 +951,6 @@ export function PaneTerminal({
       if (clipboardTimerRef.current !== null) window.clearTimeout(clipboardTimerRef.current);
       off();
       socket.close();
-      stopGlyphs();
       host.removeEventListener("compositionstart", compositionStart);
       host.removeEventListener("compositionend", compositionEnd);
       term.dispose();
@@ -959,6 +959,11 @@ export function PaneTerminal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one terminal for the mount; theme/font follow in their own effect
   }, []);
+
+  useEffect(() => {
+    const term = termRef.current;
+    return term ? startTerminalRenderer(term, terminalGpu) : undefined;
+  }, [terminalGpu]);
 
   // the theme follows the settings without a remount
   useEffect(() => {

@@ -36,6 +36,7 @@ export function TerminalHost() {
         terminalFontSize={settings.terminalFontSize}
         terminalWheelSpeed={settings.terminalWheelSpeed}
         terminalFontFamily={settings.terminalFontFamily}
+        terminalGpu={settings.terminalGpu}
         theme={resolvedTheme}
         palette={settings.palette}
         role={target.role}

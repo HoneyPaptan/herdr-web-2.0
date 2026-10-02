@@ -52,6 +52,8 @@ export const ZH: Record<string, string> = {
   "Increase terminal font size": "增大终端字号",
   "Wheel scroll speed": "滚轮滚动速度",
   "How far one turn of the wheel scrolls the terminal": "滚轮滚动一次时终端移动的距离",
+  "GPU rendering": "GPU 渲染",
+  "Draws the terminal with WebGL for smoother scrolling. Turn off if characters look misaligned.": "使用 WebGL 绘制终端，滚动更流畅。如果字符显示异常，请关闭。",
   "Slower wheel scrolling": "滚轮滚动更慢",
   "Faster wheel scrolling": "滚轮滚动更快",
   "Terminal font": "终端字体",

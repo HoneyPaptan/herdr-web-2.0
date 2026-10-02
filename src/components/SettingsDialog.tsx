@@ -290,6 +290,10 @@ export function SettingsDialog({ open, onClose, updates, auth, onEnableNotificat
                 <button type="button" className="icon-button" aria-label={t("Faster wheel scrolling")} disabled={settings.terminalWheelSpeed >= TERMINAL_WHEEL_SPEED_MAX} onClick={() => update({ terminalWheelSpeed: settings.terminalWheelSpeed + 1 })}><Plus /></button>
               </div>
             </div>
+            <div className="settings-row">
+              <div><span className="settings-label">{t("GPU rendering")}</span><span className="settings-description">{t("Draws the terminal with WebGL for smoother scrolling. Turn off if characters look misaligned.")}</span></div>
+              <Toggle label={t("GPU rendering")} checked={settings.terminalGpu} onChange={(terminalGpu) => update({ terminalGpu })} />
+            </div>
             <div className="settings-row"><label htmlFor="terminal-input-mode">{t("Terminal input mode")}</label>
               <select id="terminal-input-mode" className="input" value={settings.terminalInputMode} onChange={(event) => update({ terminalInputMode: event.target.value as "auto" | "line" | "direct" })}>
                 <option value="auto">{t("Automatic")}</option><option value="line">{t("Input line")}</option><option value="direct">{t("Direct typing")}</option>
