@@ -103,13 +103,11 @@ export const JA: Record<string, string> = {
   "Next pane": "次のペイン",
 
   // ---- agent status words (lib/status.ts) ----
-  "READY": "待機",
-  "RUN": "実行中",
+  "Ready": "準備完了",
+  "Working": "作業中",
   "Background tasks running: {count}": "実行中のバックグラウンドタスク: {count}",
-  "INPUT": "入力待ち",
-  "DONE": "完了",
-  "—": "—",
-  "Agent {status}": "エージェント {status}",
+  "Waiting on you": "あなたの入力待ち",
+  "Unknown": "不明",
 
   // ---- app header and shell ----
   "Connecting to herdr web ui…": "herdr web ui に接続しています…",
@@ -441,7 +439,7 @@ export const JA: Record<string, string> = {
   // ---- terminal ----
   "Codex has a question open in the terminal: answer it above, or close it there (alt+↓) to message Codex.": "Codex がターミナルで質問を表示しています。上で回答するか、ターミナルで閉じる (alt+↓) と Codex にメッセージを送れます。",
   "The question on screen changed; check it and answer again.": "画面上の質問が変わりました。確認してもう一度回答してください。",
-  "NOT RESTORED": "復元失敗",
+  "Not restored": "復元失敗",
   "herdr could not restore this pane": "herdr はこのペインを復元できませんでした",
   "Select a pane to open its terminal": "ターミナルを開くペインを選択してください",
   "Reconnect": "再接続",

@@ -97,11 +97,11 @@ describe("composer presentation helpers", () => {
     expect(QUEUE_READY_STATUS.idle).toBe(true);
   });
   it("maps agent states to compact status words", () => {
-    expect(composerStatusWord("idle")).toBe("READY");
-    expect(composerStatusWord("working")).toBe("RUN");
-    expect(composerStatusWord("blocked")).toBe("INPUT");
-    expect(composerStatusWord("done")).toBe("DONE");
-    expect(composerStatusWord("paused")).toBe("READY");
+    expect(composerStatusWord("idle")).toBe("Ready");
+    expect(composerStatusWord("working")).toBe("Working");
+    expect(composerStatusWord("blocked")).toBe("Waiting on you");
+    expect(composerStatusWord("done")).toBe("Finished");
+    expect(composerStatusWord("paused")).toBe("Ready");
   });
 
   it("turns machine agent ids into labels", () => {

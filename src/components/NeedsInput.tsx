@@ -3,7 +3,8 @@ import { paneStorageId } from "../../shared/machines.ts";
 import { useT } from "../lib/i18n.ts";
 import { panesNeedingInput } from "../lib/needsInput.ts";
 import { AgentMark } from "./AgentMark.tsx";
-import { displayPaneTitle, StatusBadge } from "./Sidebar.tsx";
+import { displayPaneTitle } from "./Sidebar.tsx";
+import { StatusMark } from "./StatusMark.tsx";
 import "./NeedsInput.css";
 
 export function NeedsInput({ machines, selectedMachineId, selectedPaneId, onSelect }: {
@@ -26,7 +27,7 @@ export function NeedsInput({ machines, selectedMachineId, selectedPaneId, onSele
             <span className="agent-mark-holder"><AgentMark agent={pane.agent ?? ""} size={22} /></span>
             <span className="pane-copy">
               <span className="pane-title">{displayPaneTitle(pane)}</span>
-              <span className="pane-meta"><StatusBadge status={pane.agent_status} /><span className="pane-subtitle">{machine.name} · {workspace.label}</span></span>
+              <span className="pane-meta"><StatusMark status={pane.agent_status} /><span className="pane-subtitle">{machine.name} · {workspace.label}</span></span>
             </span>
           </button>
         </li>;

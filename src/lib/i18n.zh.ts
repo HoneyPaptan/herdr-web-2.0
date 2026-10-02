@@ -105,13 +105,11 @@ export const ZH: Record<string, string> = {
   "Next pane": "下一个窗格",
 
   // ---- agent status words (lib/status.ts) ----
-  "READY": "就绪",
-  "RUN": "运行",
+  "Ready": "就绪",
+  "Working": "工作中",
   "Background tasks running: {count}": "正在运行的后台任务：{count}",
-  "INPUT": "输入",
-  "DONE": "完成",
-  "—": "—",
-  "Agent {status}": "Agent 状态：{status}",
+  "Waiting on you": "等待你的输入",
+  "Unknown": "未知",
 
   // ---- app header and shell ----
   "Connecting to herdr web ui…": "正在连接 herdr web ui…",
@@ -443,7 +441,7 @@ export const ZH: Record<string, string> = {
   // ---- terminal ----
   "Codex has a question open in the terminal: answer it above, or close it there (alt+↓) to message Codex.": "Codex 在终端中有一个未关闭的问题。请在上方回答，或在终端中关闭它 (alt+↓) 后再给 Codex 发消息。",
   "The question on screen changed; check it and answer again.": "屏幕上的问题已变化。请查看后重新回答。",
-  "NOT RESTORED": "恢复失败",
+  "Not restored": "恢复失败",
   "herdr could not restore this pane": "herdr 无法恢复此窗格",
   "Select a pane to open its terminal": "选择一个窗格以打开其终端",
   "Reconnect": "重新连接",

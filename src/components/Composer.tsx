@@ -36,6 +36,7 @@ import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/menti
 import { quickReplyButtons, useSettings } from "../lib/settings.ts";
 import { BackgroundTasks } from "./BackgroundTasks.tsx";
 import { ModelPicker } from "./ModelPicker.tsx";
+import { Orb } from "./Orb.tsx";
 import { MicButton, VoiceRecordingPill, useDictation } from "./VoiceInput.tsx";
 import { useT } from "../lib/i18n.ts";
 
@@ -103,11 +104,6 @@ async function cachedPaneCommands(paneId: string, machineId: string, fetchComman
 const COMPOSER_CARD = "composer-surface relative mx-auto w-[min(100%,var(--content-w))] rounded-2xl border border-edge-surface bg-composer shadow-(--shadow-surface) backdrop-blur-xl transition-colors focus-within:border-ring data-dragging:border-ring";
 const COMPOSER_INPUT = "composer-text max-h-[10lh] min-h-7 min-w-0 flex-1 resize-none overflow-y-auto px-1 py-1 text-prompt leading-normal text-foreground outline-none placeholder:text-muted-foreground";
 const ROUND_ACTION = "shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100 pointer-coarse:size-9";
-const STATUS_DOT: Record<string, string> = {
-  working: "bg-(--status-working)",
-  blocked: "bg-(--status-blocked)",
-  done: "bg-(--status-done)",
-};
 const RING_STROKE = "fill-none [stroke-width:2.5]";
 
 function ContextRing({ context }: { context: NonNullable<ConversationMetadata["context"]> }) {
@@ -713,8 +709,8 @@ export function Composer({
           disabled={!connected || sending || isWorking}
           onCommand={sendQuick}
         />
-        <span className="inline-flex shrink-0 items-center gap-1.5 px-1.5 text-ui text-muted-foreground">
-          <span aria-hidden="true" className={cn("size-1.5 rounded-full", STATUS_DOT[agentStatus ?? ""] ?? "bg-muted-foreground/60")} />
+        <span className={cn("inline-flex shrink-0 items-center gap-1 px-1.5 text-ui", agentStatus === "blocked" ? "text-accent-command" : "text-muted-foreground")}>
+          {isWorking && <Orb state="listening" aria-hidden="true" className="shrink-0" />}
           {t(composerStatusWord(agentStatus))}
         </span>
         <BackgroundTasks paneId={paneId} count={backgroundTasks} omo={agent === "omo"} />

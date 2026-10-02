@@ -14,7 +14,6 @@ export interface PromptCardProps {
   prompt: InteractivePrompt;
   onPromptChanged(): void;
   onAnswered(): void;
-  /** an option picked by a typed message, sent only on Confirm */
   typedAnswer?: TypedAnswer | null;
   onTypedAnswerDone?(): void;
 }
@@ -28,7 +27,6 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
   const [error, setError] = useState<string | null>(null);
   const confirmRef = useRef<HTMLDivElement | null>(null);
 
-  // the question to confirm comes into view, clear of the chat's floating buttons
   useEffect(() => {
     confirmRef.current?.scrollIntoView({ block: "center" });
   }, [typedAnswer]);
@@ -68,7 +66,6 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
   };
 
   const customLabelId = useId();
-  // Claude renders the menu's own pick as "Redis (Recommended)": a tag reads better than the suffix
   const labelOf = (label: string): { text: string; recommended: boolean } => {
     const text = label.replace(/\s*\(recommended\)$/i, "");
     return { text, recommended: text !== label };
@@ -78,10 +75,9 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
   return (
     <section className="prompt-card" role="region" aria-label={t("Agent is asking")} aria-busy={pending}>
       <header className="prompt-card-header">
-        <span className="badge badge-blocked">{t("input needed")}</span>
+        <span className="text-ui text-accent-command">{t("input needed")}</span>
         <h2>{prompt.title}</h2>
       </header>
-      {/* a form of several questions (omo): each one, answered or not, and the one asked now */}
       {prompt.steps && (
         <ol className="prompt-card-steps" aria-label={t("Questions")}>
           {prompt.steps.map((step, index) => (
@@ -93,7 +89,6 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
           ))}
         </ol>
       )}
-      {/* a Claude approval's heading is its question too: said once */}
       {prompt.question !== prompt.title && <p className="prompt-card-question">{prompt.question}</p>}
       {prompt.queued && (
         <p className="prompt-card-hint">
@@ -141,7 +136,6 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
           {hasChoices && <span className="prompt-card-custom-label" id={customLabelId}>{t("Or type your own answer")}</span>}
           <div className="prompt-card-custom-row">
             <input className="input" value={custom} disabled={pending} placeholder={prompt.options[prompt.custom_option_index]?.label ?? t("Type an answer")} aria-label={hasChoices ? undefined : t("Custom answer")} aria-labelledby={hasChoices ? customLabelId : undefined} onChange={(event) => setCustom(event.currentTarget.value)} onKeyDown={(event) => {
-              // an IME's Enter commits the candidate; WebKit can send it after compositionend, as key code 229
               if (event.key === "Enter" && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && custom.trim().length > 0) void answer({ custom_text: custom.trim() });
             }} />
             <button type="button" className={`btn${custom.trim().length > 0 ? " btn-primary" : ""}`} disabled={pending || custom.trim().length === 0} onClick={() => void answer({ custom_text: custom.trim() })}>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Ellipsis, Monitor, Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleDashed, Download, Ellipsis, Monitor, Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -121,14 +121,14 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
         {collapsed ? <ChevronRight className="machine-caret" aria-hidden="true" /> : <ChevronDown className="machine-caret" aria-hidden="true" />}
         <Monitor className="machine-icon" aria-hidden="true" />
         <span className="machine-name">{machine.name}</span>
-        {machine.kind === "local" && <span className="machine-kind" title={t("The computer this app runs on")}>{t("Host")}</span>}
-        <span className={`machine-dot is-${machine.state}`} title={t(STATE_WORD[machine.state])} aria-hidden="true" />
+        {machine.kind === "local" && <span className="machine-kind shrink-0 text-ui text-muted-foreground/60" title={t("The computer this app runs on")}>{t("Host")}</span>}
+        {(machine.state === "connecting" || machine.state === "reconnecting") && <CircleDashed aria-hidden="true" strokeWidth={1.5} className="size-3.5 shrink-0 animate-spin text-muted-foreground [animation-duration:3s] motion-reduce:animate-none" />}
       </button>
       <button className="sidebar-row-action" disabled={!online} aria-label={t("New session on {name}", { name: machine.name })} title={t("New session")} onClick={() => props.onNew(machine.id)}><Plus aria-hidden="true" /></button>
       {machine.kind === "ssh" && <button className="sidebar-row-action" aria-label={t("Manage {name}", { name: machine.name })} title={t("Manage PC")} aria-expanded={editing} onClick={() => { setEditing(!editing); setConfirmDelete(false); }}><SlidersHorizontal aria-hidden="true" /></button>}
     </header>
     {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p className={`machine-state is-${machine.state}${online ? " visually-hidden" : ""}`} role="status" title={machine.error ?? undefined}>
-      <span className="machine-state-word">{STATE_WORD[machine.state]}</span>
+      <span className="machine-state-word">{t(STATE_WORD[machine.state])}</span>
       {machine.error && <span className="machine-state-detail">{machine.error}</span>}
     </p>}
     {editing && <div className="machine-controls">

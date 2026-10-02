@@ -3,11 +3,11 @@ import { ChevronDown, ChevronRight, Folder, GripVertical, Layers, Pencil, Termin
 
 import "./Sidebar.css";
 
-import type { AgentStatus, PaneInfo, SessionSnapshot, WorkspaceInfo, HerdrPane } from "../../shared/protocol.ts";
+import type { PaneInfo, SessionSnapshot, WorkspaceInfo, HerdrPane } from "../../shared/protocol.ts";
 import { paneTitle } from "../../shared/notify-policy.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import type { AppActions } from "../lib/actions.ts";
-import { knownStatus, STATUS_WORD } from "../lib/status.ts";
+import { StatusMark, StatusRail, WorkingOrb } from "./StatusMark.tsx";
 import { AgentMark } from "./AgentMark.tsx";
 import { folderName, placeLine, shortPathTitle } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
@@ -45,17 +45,7 @@ export function displayPaneTitle(pane: PaneInfo): string {
 
 export function RestoreErrorBadge({ reason }: { reason: string }) {
   const t = useT();
-  return <span className="badge badge-restore-error" title={reason}>{t("NOT RESTORED")}</span>;
-}
-
-export function StatusBadge({ status }: { status?: AgentStatus }) {
-  const t = useT();
-  const value = knownStatus(status);
-  return (
-    <span className={`badge badge-${value}`} data-status={value} title={t("Agent {status}", { status: t(STATUS_WORD[value]) })}>
-      {t(STATUS_WORD[value])}
-    </span>
-  );
+  return <span className="shrink-0 text-ui text-destructive" title={reason}>{t("Not restored")}</span>;
 }
 
 export function BackgroundBadge({ count }: { count?: number }) {
@@ -63,8 +53,8 @@ export function BackgroundBadge({ count }: { count?: number }) {
   if (!count || count <= 0) return null;
   const label = t("Background tasks running: {count}", { count });
   return (
-    <span className="badge badge-background" title={label} aria-label={label} data-testid="background-tasks">
-      <Layers aria-hidden="true" />{count}
+    <span className="inline-flex shrink-0 items-center gap-1 text-ui text-muted-foreground tabular-nums" title={label} aria-label={label} data-testid="background-tasks">
+      <Layers aria-hidden="true" className="size-3" />{count}
     </span>
   );
 }
@@ -310,7 +300,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
                 {workspace.label}
               </span>
             )}
-            <StatusBadge status={workspace.agent_status} />
+            <StatusMark status={workspace.agent_status} />
             <button type="button" className="sidebar-row-action workspace-rename" aria-label={t("Rename workspace {name}", { name: workspace.label })} onClick={() => beginWorkspaceRename(workspace, scope)}>
               <Pencil aria-hidden="true" />
             </button>
@@ -332,7 +322,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
                     role="button"
                     tabIndex={0}
                     aria-current={selected ? "true" : undefined}
-                    title={`${pane.pane_id} — ${fullTitle}${pane.cwd ? ` — ${pane.cwd}` : ""}`}
+                    title={`${pane.pane_id} · ${fullTitle}${pane.cwd ? ` · ${pane.cwd}` : ""}`}
                     onClick={() => actions.selectPane(pane.pane_id)}
                     onKeyDown={(event) => {
                       if (event.key !== "Enter" && event.key !== " ") return;
@@ -340,6 +330,7 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
                       actions.selectPane(pane.pane_id);
                     }}
                   >
+                    <StatusRail status={pane.agent_status} />
                     <span className={`agent-mark-holder${pane.agent ? "" : " is-shell"}`} title={pane.agent ?? t("Shell")}>
                       {pane.agent ? <AgentMark agent={pane.agent} size={22} /> : <Terminal aria-hidden="true" />}
                     </span>
@@ -363,9 +354,10 @@ export function Sidebar({ snapshot, selectedPaneId, actions }: SidebarProps) {
                         ) : (
                           <span className="pane-title">{displayTitle}</span>
                         )}
+                        <span className="ml-auto flex shrink-0 items-center"><WorkingOrb status={pane.agent_status} /></span>
                       </span>
                       <span className="pane-meta">
-                        {pane.restore_error ? <RestoreErrorBadge reason={pane.restore_error} /> : <StatusBadge status={pane.agent_status} />}
+                        {pane.restore_error && <RestoreErrorBadge reason={pane.restore_error} />}
                         <BackgroundBadge count={(pane as HerdrPane).background_tasks} />
                         <span className="pane-subtitle">{byFolder ? workspace.label : placeLine(workspace.label, cwdBasename(pane.cwd))}</span>
                       </span>

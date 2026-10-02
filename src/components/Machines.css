@@ -52,30 +52,6 @@
   white-space: nowrap;
 }
 
-.machine-kind {
-  flex: none;
-  color: var(--text-dim);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-regular);
-}
-
-.machine-dot {
-  flex: none;
-  width: var(--dot-size);
-  height: var(--dot-size);
-  border-radius: var(--radius-pill);
-  background: var(--status-idle);
-}
-
-.machine-dot.is-connected { background: var(--status-done); }
-.machine-dot.is-error { background: var(--status-blocked); }
-
-.machine-dot.is-connecting,
-.machine-dot.is-reconnecting {
-  background: var(--status-working);
-  animation: pulse var(--dur-pulse) var(--ease-pulse) infinite;
-}
-
 .machine-state {
   display: flex;
   flex-direction: column;
@@ -216,10 +192,6 @@
   padding: 0 var(--space-3) var(--space-2) var(--machine-indent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .machine-dot.is-connecting,
-  .machine-dot.is-reconnecting { animation: none; }
-}
 
 /* a PC that retrying cannot reconnect: the next step, spelled out, with its button */
 .machine-action {

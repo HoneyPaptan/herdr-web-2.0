@@ -402,61 +402,6 @@ body {
   text-transform: uppercase;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--chip-h);
-  padding: 0 var(--space-2);
-  border: var(--hairline-w) solid transparent;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-2xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.badge-idle {
-  color: var(--text-dim);
-  background: var(--bg-elevated);
-}
-
-.badge-working {
-  color: var(--status-working);
-  background: var(--status-working-tint);
-}
-
-.badge-working::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: var(--radius-pill);
-  background: currentColor;
-  animation: pulse var(--dur-pulse) var(--ease-pulse) infinite;
-}
-
-.badge-blocked {
-  color: var(--status-blocked);
-  background: var(--status-blocked-tint);
-}
-
-.badge-done {
-  color: var(--status-done);
-  background: var(--status-done-tint);
-}
-
-.badge-restore-error {
-  color: var(--danger-text);
-  background: var(--danger-tint);
-}
-
-.badge-unknown {
-  color: var(--text-dim);
-  border-color: var(--border);
-  border-style: dashed;
-}
-
 .segmented {
   display: inline-flex;
   align-items: center;
@@ -796,10 +741,6 @@ body {
   .btn,
   .error-retry {
     transition: none;
-  }
-
-  .badge-working::before {
-    animation: none;
   }
 }
 

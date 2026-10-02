@@ -1,4 +1,4 @@
-import { Bell as BellIcon, Copy, Ellipsis, FolderOpen, Lock, MessageSquare, PanelLeft, Search, SquareTerminal } from "lucide-react";
+import { Bell as BellIcon, CircleDashed, Copy, Ellipsis, FolderOpen, Lock, MessageSquare, PanelLeft, Search, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -28,7 +28,7 @@ import { Brand } from "./Brand.tsx";
 const CHROME_BUTTON = "shrink-0 opacity-80 transition-opacity hover:opacity-100 [&_svg]:size-4.5";
 const MENU_ROW = "cursor-pointer text-ui";
 const STATUS_CHIP = "inline-flex shrink-0 items-center gap-1.5 text-ui text-muted-foreground";
-const STATUS_DOT = "size-1.5 shrink-0 rounded-full";
+const STATUS_GLYPH = "size-3.5 shrink-0";
 
 function DrawerToggle() {
   const t = useT();
@@ -115,12 +115,12 @@ function ConnectionStatus() {
   return (
     <>
       <span role="status" className={cn("conn", connected ? "conn-live sr-only" : cn("conn-reconnecting", STATUS_CHIP))}>
-        <span aria-hidden="true" className={cn(STATUS_DOT, "animate-pulse bg-(--status-working) motion-reduce:animate-none")} />
+        <CircleDashed aria-hidden="true" strokeWidth={1.5} className={cn(STATUS_GLYPH, "animate-spin [animation-duration:3s] motion-reduce:animate-none")} />
         <span className="conn-text max-[480px]:hidden">{t(connected ? "live" : outputStopped ? "disconnected" : "reconnecting")}</span>
       </span>
       {!herdr && (
         <span className={cn("pill-offline", STATUS_CHIP)}>
-          <span aria-hidden="true" className={cn(STATUS_DOT, "bg-(--status-blocked)")} />
+          <Unplug aria-hidden="true" strokeWidth={1.5} className={STATUS_GLYPH} />
           <span className="max-[480px]:hidden">{t("herdr offline")}</span>
         </span>
       )}

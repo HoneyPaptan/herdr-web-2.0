@@ -9,7 +9,8 @@ import type { AppActions, PaneView } from "../lib/actions.ts";
 import { rankPanes } from "../lib/paletteSearch.ts";
 import { SHORTCUTS, formatKeys, type ShortcutId } from "../lib/shortcuts.ts";
 import { AgentMark } from "./AgentMark.tsx";
-import { displayPaneTitle, StatusBadge } from "./Sidebar.tsx";
+import { displayPaneTitle } from "./Sidebar.tsx";
+import { StatusMark } from "./StatusMark.tsx";
 import { placeLine } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
 
@@ -46,9 +47,7 @@ function rememberPane(paneId: string, current: readonly string[], machineId: str
   const recent = [paneId, ...current.filter((id) => id !== paneId)].slice(0, RECENT_LIMIT);
   try {
     window.localStorage.setItem(machineId === "local" ? RECENT_KEY : `${RECENT_KEY}:${machineId}`, JSON.stringify(recent));
-  } catch {
-    /* private mode: recent ordering remains available for this page */
-  }
+  } catch {}
   return recent;
 }
 
@@ -73,8 +72,6 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
   const [recentPaneIds, setRecentPaneIds] = useState<string[]>(() => loadRecentPanes(machineId));
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Terminal attachment can move focus after the palette opens. Escape belongs to
-  // this modal even then, and must not leak through to the underlying terminal.
   useLayoutEffect(() => {
     if (!open) return;
     const dismiss = (event: KeyboardEvent): void => {
@@ -181,7 +178,7 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
               <button key={pane.pane_id} id={`palette-item-${index}`} type="button" role="option" className="menu-item palette-pane" aria-selected={activeIndex === index} onMouseEnter={() => setActiveIndex(index)} onClick={() => runPane(pane)}>
                 <span className="palette-mark"><AgentMark agent={pane.agent ?? "shell"} /></span>
                 <span className="menu-item-main"><span className="palette-row-title">{displayPaneTitle(pane)}{selected && <span className="palette-selected">{t("Selected")}</span>}</span><span className="palette-row-subtitle">{placeLine(workspace?.label ?? t("Unknown workspace"), cwdBasename(pane.foreground_cwd ?? pane.cwd))}</span></span>
-                <StatusBadge status={pane.agent_status} />
+                <StatusMark status={pane.agent_status} />
               </button>
             );
           })}

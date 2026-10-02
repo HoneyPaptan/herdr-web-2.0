@@ -101,13 +101,11 @@ export const KO: Record<string, string> = {
   "Next pane": "다음 패널",
 
   // ---- agent status words (lib/status.ts) ----
-  "READY": "대기",
-  "RUN": "실행",
+  "Ready": "준비됨",
+  "Working": "작업 중",
   "Background tasks running: {count}": "실행 중인 백그라운드 작업: {count}",
-  "INPUT": "입력",
-  "DONE": "완료",
-  "—": "—",
-  "Agent {status}": "에이전트 {status}",
+  "Waiting on you": "입력 대기 중",
+  "Unknown": "알 수 없음",
 
   // ---- app header and shell ----
   "Connecting to herdr web ui…": "herdr web ui에 연결하는 중…",
@@ -439,7 +437,7 @@ export const KO: Record<string, string> = {
   // ---- terminal ----
   "Codex has a question open in the terminal: answer it above, or close it there (alt+↓) to message Codex.": "Codex가 터미널에 질문을 열어 두었습니다. 위에서 답하거나, 터미널에서 닫으면(alt+↓) Codex에게 메시지를 보낼 수 있습니다.",
   "The question on screen changed; check it and answer again.": "화면의 질문이 바뀌었습니다. 확인하고 다시 답하세요.",
-  "NOT RESTORED": "복원 실패",
+  "Not restored": "복원 실패",
   "herdr could not restore this pane": "herdr가 이 패널을 복원하지 못했습니다",
   "Select a pane to open its terminal": "터미널을 열 패널을 선택하세요",
   "Reconnect": "다시 연결",
