@@ -45,6 +45,12 @@
 
 .chat-turn {
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
+
+.chat-turn :focus-visible {
+  outline-offset: -2px;
 }
 
 .chat-terminal-fallback {

@@ -40,6 +40,15 @@
   list-style: none;
 }
 
+.dir-browser-list > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--control-h);
+}
+
+.dir-browser-list > li :focus-visible {
+  outline-offset: -2px;
+}
+
 .dir-browser-item {
   width: 100%;
   min-height: var(--control-h);
