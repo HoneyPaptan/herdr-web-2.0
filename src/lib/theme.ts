@@ -73,6 +73,8 @@ const TERMINAL_THEMES: Record<ThemeName, Record<Mode, ITheme>> = {
   },
 };
 
+export const TERMINAL_MIN_CONTRAST = 4.5;
+
 export function terminalTheme(name: ThemeName, mode: Mode): ITheme {
   return TERMINAL_THEMES[name][modeFor(name, mode)];
 }

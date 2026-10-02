@@ -27,7 +27,7 @@ import { Composer } from "./Composer.tsx";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
 import { useSettings, type Palette, type ResolvedTheme } from "../lib/settings.ts";
-import { terminalTheme } from "../lib/theme.ts";
+import { TERMINAL_MIN_CONTRAST, terminalTheme } from "../lib/theme.ts";
 import { loadFontStack, terminalBootStack, terminalFontStack } from "../lib/fontFamily.ts";
 import { useT } from "../lib/i18n.ts";
 import { isAppShortcut } from "../lib/shortcuts.ts";
@@ -224,6 +224,7 @@ export function PaneTerminal({
       fontSize: terminalFontSize,
       fontFamily: terminalBootStack(terminalFontSize),
       theme: terminalTheme(palette, theme),
+      minimumContrastRatio: TERMINAL_MIN_CONTRAST,
       linkHandler: {
         activate: (event, uri) => {
           if (!linkPressed(event)) return;
