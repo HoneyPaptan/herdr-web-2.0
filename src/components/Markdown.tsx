@@ -1,19 +1,39 @@
-import { useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
-import katex from "katex";
 
 import { foldCode, parseMarkdown, type InlineNode, type ListBlock, type MarkdownBlock } from "../lib/markdown.ts";
 import { codeIsFilePath, OpenFileContext, splitFilePaths } from "../lib/filePaths.ts";
 import { fileUriPath } from "../lib/terminalFileLinks.ts";
 import { useT } from "../lib/i18n.ts";
 
+type Katex = typeof import("../lib/katex.ts").default;
+
+let loadedKatex: Katex | null = null;
+let katexLoad: Promise<Katex> | null = null;
+
+export function loadKatex(): Promise<Katex> {
+  katexLoad ??= import("../lib/katex.ts").then((module) => (loadedKatex = module.default));
+  return katexLoad;
+}
+
+function useKatex(): Katex | null {
+  const [katex, setKatex] = useState(loadedKatex);
+  useEffect(() => {
+    if (!katex) void loadKatex().then(setKatex, () => undefined);
+  }, [katex]);
+  return katex;
+}
+
 function MathExpression({ value, displayMode = false }: { value: string; displayMode?: boolean }) {
+  const katex = useKatex();
+  const source = <span>{displayMode ? `\\[${value}\\]` : `\\(${value}\\)`}</span>;
+  if (!katex) return source;
   try {
     // KaTeX escapes text and rejects untrusted commands by default.
     const html = katex.renderToString(value, { displayMode, strict: "ignore" });
     return <span className={displayMode ? "markdown-math-display" : "markdown-math"} dangerouslySetInnerHTML={{ __html: html }} />;
   } catch {
-    return <span>{displayMode ? `\\[${value}\\]` : `\\(${value}\\)`}</span>;
+    return source;
   }
 }
 
