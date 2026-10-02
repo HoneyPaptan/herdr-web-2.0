@@ -97,6 +97,7 @@
 
 @layer base {
   *, ::before, ::after { box-sizing: border-box; }
+  :where([data-slot=dialog-content]) :where(p, h1, h2, h3, h4, ul, ol, section, fieldset) { margin: 0; padding: 0; border-width: 0; }
   :where([data-slot]) { margin: 0; padding: 0; border-width: 0; border-style: solid; background: transparent; font: inherit; color: inherit; }
   * { @apply border-border outline-ring/50; }
   button { font: inherit; color: inherit; }

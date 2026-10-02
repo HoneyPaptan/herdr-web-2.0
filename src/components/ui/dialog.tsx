@@ -42,6 +42,7 @@ function DialogContent({
       >
         {children}
         <DialogPrimitive.Close
+          data-slot="dialog-close"
           aria-label={closeLabel}
           className="absolute top-5 right-5 cursor-pointer rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 max-md:top-[max(1.25rem,env(safe-area-inset-top))]"
         >

@@ -58,6 +58,7 @@ export function SettingsTabs<T extends string>({ title, tabs, value, onChange, c
                 key={tab.id}
                 type="button"
                 role="tab"
+                data-slot="settings-tab"
                 id={`${baseId}-tab-${tab.id}`}
                 aria-selected={selected}
                 aria-controls={`${baseId}-panel`}
@@ -95,7 +96,7 @@ export function SettingsTabs<T extends string>({ title, tabs, value, onChange, c
 
 export function SettingsSection({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
-    <section className={cn("settings-section flex flex-col gap-4", className)}>
+    <section className={cn("settings-section flex min-w-0 flex-col gap-4", className)}>
       {title && <h2 className="text-ui font-medium text-muted-foreground">{title}</h2>}
       {children}
     </section>
@@ -109,9 +110,9 @@ export function SettingDescription({ children }: { children: ReactNode }) {
 export function InlineRow({ label, description, children }: { label: string; description?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <span className="text-ui font-medium">{label}</span>
-        <div className="shrink-0">{children}</div>
+        <div className="max-w-full min-w-0">{children}</div>
       </div>
       {description && <SettingDescription>{description}</SettingDescription>}
     </div>
