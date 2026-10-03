@@ -19,6 +19,7 @@ import type {
   WorkspaceCreated,
 } from "../../shared/protocol.ts";
 import type { ChangeDiff, PaneChanges } from "../../shared/changes.ts";
+import type { OpencodeModels } from "../../shared/opencode-model.ts";
 import type { PaneScrollInfo } from "../../shared/herdr-api.generated.ts";
 import type { UpdateCommand, UpdateStatus } from "../../shared/update.ts";
 import type { AlertPrefs } from "../../shared/notify-policy.ts";
@@ -362,6 +363,14 @@ export async function fetchPaneFiles(paneId: string, query: string, limit = 20, 
 
 export async function fetchPaneChanges(paneId: string, machineId = "local"): Promise<PaneChanges> {
   return getJson<PaneChanges>(machinePath(machineId, `pane/changes?pane_id=${encodeURIComponent(paneId)}`));
+}
+
+export async function fetchOpencodeModels(paneId: string, machineId = "local"): Promise<OpencodeModels> {
+  return getJson<OpencodeModels>(machinePath(machineId, `pane/opencode-models?pane_id=${encodeURIComponent(paneId)}`));
+}
+
+export async function switchOpencodeModel(paneId: string, model: string, machineId = "local"): Promise<void> {
+  await sendJson(machinePath(machineId, "pane/opencode-model"), "POST", { pane_id: paneId, model });
 }
 
 export async function fetchPaneChangeDiff(paneId: string, path: string, machineId = "local"): Promise<ChangeDiff> {
