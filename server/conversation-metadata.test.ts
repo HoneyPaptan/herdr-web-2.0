@@ -72,6 +72,13 @@ describe("recorded conversation model settings", () => {
     ), "claude-transcript")).toEqual({ model: "claude-test", reasoning_effort: "xhigh" });
   });
 
+  it("takes Claude's effort from an /effort command before the next reply", () => {
+    expect(parseConversationMetadata(jsonl(
+      { type: "assistant", effort: "low", message: { role: "assistant", model: "claude-test" } },
+      { type: "user", message: { role: "user", content: "<local-command-stdout>Set effort level to medium (saved as your default for new sessions): Balanced</local-command-stdout>" } },
+    ), "claude-transcript")).toEqual({ model: "claude-test", reasoning_effort: "medium" });
+  });
+
   it("tolerates absent metadata, unexpected types and a torn append without losing valid settings", () => {
     const text = jsonl(null, [], { type: "turn_context", payload: null },
       { type: "turn_context", payload: { model: "recorded", effort: "medium" } },

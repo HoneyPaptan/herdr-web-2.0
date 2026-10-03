@@ -94,7 +94,15 @@ export function parseConversationMetadata(text: string, source: ConversationResp
       }
       // Claude Code records the effort each response ran at; versions before it record none
       if (entry.type === "assistant" && "effort" in entry) metadata.reasoning_effort = label(entry.effort);
+      const picked = entry.type === "user" ? effortCommandResult(message.content) : null;
+      if (picked) metadata.reasoning_effort = picked;
     }
   }
   return metadata;
+}
+
+const EFFORT_SET = /<local-command-stdout>Set effort level to ([a-z]+)\b/;
+
+function effortCommandResult(content: unknown): string | null {
+  return typeof content === "string" ? EFFORT_SET.exec(content)?.[1] ?? null : null;
 }
