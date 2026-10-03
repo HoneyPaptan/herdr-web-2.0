@@ -7,8 +7,14 @@ describe("swipeVerdict", () => {
     expect(swipeVerdict(false, 4, SWIPE_PX, 5)).toBe("open");
   });
 
-  test("a stroke that starts away from the edge is the page's", () => {
-    expect(swipeVerdict(false, EDGE_PX + 1, SWIPE_PX * 2, 0)).toBe("ignore");
+  test("a clearly sideways swipe from anywhere opens the closed drawer", () => {
+    expect(swipeVerdict(false, 200, 20, 2)).toBe("claim");
+    expect(swipeVerdict(false, 200, SWIPE_PX, 5)).toBe("open");
+  });
+
+  test("a diagonal stroke away from the edge stays the page's scroll", () => {
+    expect(swipeVerdict(false, EDGE_PX + 1, 30, 20)).toBe("ignore");
+    expect(swipeVerdict(false, 4, 30, 20)).toBe("claim");
   });
 
   test("a vertical stroke from the edge still scrolls", () => {
