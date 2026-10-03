@@ -28,6 +28,8 @@ const CLAUDE_TABS_RE = /^←\s+[☐☒☑✔]/;
 // plain rows, `❯` on the selected one, under this hint
 const CLAUDE_CONFIRM_HINT_RE = /enter to confirm.*esc to (?:cancel|exit|go back)/i;
 const SOLID_RULE_RE = /^[─━]{8,}$/;
+const PANEL_RULE_RE = /[─━]{8,}/;
+const PANEL_SCAN_LINES = 30;
 const CODEX_APPROVAL_HEADER_RE =
   /(?:Would you like to (?:run|make|apply|continue|grant)|Allow Codex to|Approve (?:this )?(?:app )?tool call|Do you trust the contents|Trust this folder\?|Enable full access)/i;
 const NUMBERED_OPTION_RE = /^\s*([›>❯])?\s*(\d+)\.\s+(.+)$/;
@@ -76,6 +78,7 @@ type Responder =
   | "claude-approval"
   | "claude-plan"
   | "claude-confirm"
+  | "claude-hintless-confirm"
   | "omo-question"
   | "omo-review"
   | "omo-typing"
@@ -1111,6 +1114,48 @@ function parseClaudeConfirm(screen: string): ParsedPrompt | null {
   });
 }
 
+function trailingBlock(lines: string[]): { start: number; end: number } | null {
+  const end = findLastIndex(lines, (line) => Boolean(cleanLine(line)));
+  if (end < 0) return null;
+  let start = end;
+  while (start > 0 && cleanLine(lines[start - 1]!) && !isDivider(lines[start - 1]!)) start -= 1;
+  return { start, end };
+}
+
+function panelAbove(lines: string[], start: number): string[] | null {
+  for (let index = start - 1; index >= Math.max(0, start - PANEL_SCAN_LINES); index -= 1) {
+    if (PANEL_RULE_RE.test(cleanLine(lines[index]!))) return lines.slice(index + 1, start).map(cleanLine);
+  }
+  return null;
+}
+
+function paragraphs(lines: string[]): string[] {
+  return lines.join("\n").split(/\n{2,}/).map(normalizeText).filter(Boolean);
+}
+
+function parseClaudeHintlessConfirm(screen: string): ParsedPrompt | null {
+  const lines = screen.replace(ANSI_RE, "").split(/\r?\n/);
+  const block = trailingBlock(lines);
+  if (!block) return null;
+  const rows = parseNumberedRows(lines, block.start, block.end + 1);
+  if (rows[0]?.lineIndex !== block.start || !sequentialRows(rows)) return null;
+  if (rows.length < 2 || rows.length > 9 || rows.filter((row) => row.selected).length !== 1) return null;
+  const panel = panelAbove(lines, block.start);
+  const title = panel?.find(Boolean);
+  if (!panel || !title?.endsWith("?")) return null;
+  const body = paragraphs(panel.slice(panel.indexOf(title) + 1));
+  const rowEnd = (index: number): number => rows[index + 1]?.lineIndex ?? block.end + 1;
+  return finishPrompt("claude", {
+    kind: "menu", title, question: title,
+    body: body.join("\n\n") || null,
+    options: rows.map((row, index) => ({ label: normalizeText([row.label, ...lines.slice(row.lineIndex + 1, rowEnd(index)).map(cleanLine)].join(" ")), description: null })),
+    multi_select: false, custom_option_index: null,
+  }, {
+    responder: "claude-hintless-confirm", menuLabels: rows.map((row) => row.label), selectedIndex: rows.findIndex((row) => row.selected),
+    checkedOptionIndices: [], customMenuIndex: null, rejectWithEscapeIndex: null,
+  });
+}
+
 function promptTailIsActive(prompt: ParsedPrompt, screen: string): boolean {
   const cleanLines = screen.replace(ANSI_RE, "").split(/\r?\n/).map(cleanLine);
   const shown = cleanLines.filter((line) => line && !isDivider(line));
@@ -1130,6 +1175,7 @@ function promptTailIsActive(prompt: ParsedPrompt, screen: string): boolean {
   if (prompt.responder === "omp-approval") return ends(/^(?:Approve|Deny)$|esc.*cancel/i);
   if (prompt.responder === "claude-approval") return ends(/esc to cancel.*(?:tab|ctrl\+e)|ctrl\+e to explain/i);
   if (prompt.responder === "claude-confirm") return ends(CLAUDE_CONFIRM_HINT_RE);
+  if (prompt.responder === "claude-hintless-confirm") return true;
   if (prompt.responder === "omo-question" || prompt.responder === "omo-review" || prompt.responder === "omo-typing") {
     // The form is live only with nothing but OmO's own footer under its hint: blank lines, one
     // rule, then the footer's few lines (cwd, context, model). Anything else is the form's text
@@ -1427,7 +1473,7 @@ function parsePrompt(agent: string, screen: string, omoAsk: OmoAsk | null = null
       // `pi` reads pi's own dialogs first: pi's hint is its own, so an omo form never matches
       // it and falls through to omo()'s parsers.
       : agent === "claude"
-        ? [parseClaudeQuestion(screen), parseClaudeSubmit(screen), parseClaudeApproval(screen), parseClaudeConfirm(screen), ...omo()]
+        ? [parseClaudeQuestion(screen), parseClaudeSubmit(screen), parseClaudeApproval(screen), parseClaudeConfirm(screen), parseClaudeHintlessConfirm(screen), ...omo()]
         : agent === "pi"
           ? [parsePiModel(screen), parsePiDialog(screen), ...omo()]
         : agent === "omo" || agent === ""
@@ -2042,7 +2088,7 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
         // terminal after the card was built would send this answer to the wrong row — and a
         // wrong model, unlike a wrong menu entry, answers every later turn silently.
         const responder = parsedByPublicPrompt.get(target)?.responder;
-        const verifyCursor = responder === "claude-confirm" || responder === "pi-model";
+        const verifyCursor = responder === "claude-confirm" || responder === "claude-hintless-confirm" || responder === "pi-model";
         for (let index = 0; index < steps.length; index += 1) {
           const step = steps[index]!;
           if (verifyCursor && body.option_index !== undefined && index === steps.length - 1) {

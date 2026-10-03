@@ -816,6 +816,57 @@ ${after}`;
   });
 });
 
+describe("Claude's confirms drawn without a key hint", () => {
+  const switchModel = (selected: 0 | 1, after = "") => `
+❯ /effort high
+  ⎿  Set effort level to high (saved as your default for new sessions)
+
+────────────────────────────────────────────── 6% until auto-compact ─
+  Switch model?
+  Your next response will be slower and use more tokens
+
+  This conversation is cached for the current model.
+  Switching to Fable 5.1 means the full history gets re-read
+  on your next message.
+
+  ${selected === 0 ? "❯" : " "} 1. Yes, switch to Fable 5.1
+  ${selected === 1 ? "❯" : " "} 2. No, go back
+${after}`;
+
+  test("reads the model switch confirm with its warning and both rows", () => {
+    const prompt = parseInteractivePrompt("claude", switchModel(0))!;
+    expect(prompt).not.toBeNull();
+    expect(prompt.kind).toBe("menu");
+    expect(prompt.title).toBe("Switch model?");
+    expect(prompt.body).toBe("Your next response will be slower and use more tokens\n\nThis conversation is cached for the current model. Switching to Fable 5.1 means the full history gets re-read on your next message.");
+    expect(labels(prompt)).toEqual(["Yes, switch to Fable 5.1", "No, go back"]);
+  });
+
+  test("answers from the native cursor, and keeps its id when only the cursor moves", () => {
+    const prompt = parseInteractivePrompt("claude", switchModel(0))!;
+    expect(answerKeys(prompt, { option_index: 1 })).toEqual([{ keys: ["down"] }, { keys: ["enter"] }]);
+    const moved = parseInteractivePrompt("claude", switchModel(1))!;
+    expect(moved.id).toBe(prompt.id);
+    expect(answerKeys(moved, { option_index: 0 })).toEqual([{ keys: ["up"] }, { keys: ["enter"] }]);
+  });
+
+  test("is gone once anything is drawn under the rows", () => {
+    expect(parseInteractivePrompt("claude", switchModel(0, "\n❯ \n  ? for shortcuts\n"))).toBeNull();
+  });
+
+  test("never reads a numbered list in a reply as a menu", () => {
+    const reply = `
+──────────────────────────────────────────────
+  Which one?
+
+  ❯ 1. first
+    3. third
+`;
+    expect(parseInteractivePrompt("claude", reply)).toBeNull();
+    expect(parseInteractivePrompt("claude", "● Steps\n\n  1. build\n  2. ship\n")).toBeNull();
+  });
+});
+
 describe("OmO's ask_user_question form", () => {
   // omo 5.1.7 in a 120-column herdr pane, as herdr reads it: the overlay between two rules, then
   // omo's footer. herdr labels the pane `pi` while omo waits on it.
