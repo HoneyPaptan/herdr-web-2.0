@@ -80,6 +80,10 @@ function score(path: string, query: string): number {
   return -1;
 }
 
+function hidden(path: string): boolean {
+  return path.startsWith(".") || path.includes("/.");
+}
+
 function depth(path: string): number {
   return path.split("/").length;
 }
@@ -90,7 +94,7 @@ export async function paneFiles(cwd: string, query = "", limit = 20): Promise<st
   return (await inventory(cwd))
     .map((path) => ({ path, score: score(path, normalized) }))
     .filter((item) => item.score >= 0)
-    .sort((left, right) => right.score - left.score || depth(left.path) - depth(right.path) || left.path.localeCompare(right.path))
+    .sort((left, right) => right.score - left.score || Number(hidden(left.path)) - Number(hidden(right.path)) || depth(left.path) - depth(right.path) || left.path.localeCompare(right.path))
     .slice(0, boundedLimit)
     .map((item) => item.path);
 }

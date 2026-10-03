@@ -37,7 +37,7 @@ describe("paneFiles", () => {
     writeFileSync(join(root, ".cache", "deep", "readme.txt"), "cache");
     writeFileSync(join(root, ".env"), "KEY=1");
     expect(await paneFiles(root, "readme", 20)).toEqual(["README.md"]);
-    expect(await paneFiles(root, "", 3)).toEqual([".env", "README.md", "src/api.ts"]);
+    expect(await paneFiles(root, "", 4)).toEqual(["README.md", "src/api.ts", "src/components/PromptCard.tsx", ".env"]);
   });
 
   it("uses tracked and untracked non-ignored files in a git repository", async () => {
