@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo } from "react";
 import * as api from "./api.ts";
+import type { PermissionMode } from "../../shared/permission-mode.ts";
 export const MachineContext = createContext("local");
 export const useMachineId = () => useContext(MachineContext);
 /** Bound functions retain their owner across an async upload or a fast PC switch. */
@@ -18,6 +19,8 @@ export function useMachineApi() {
     fetchPaneChangeDiff: (pane: string, path: string) => api.fetchPaneChangeDiff(pane, path, id),
     fetchOpencodeModels: (pane: string) => api.fetchOpencodeModels(pane, id),
     switchOpencodeModel: (pane: string, model: string) => api.switchOpencodeModel(pane, model, id),
+    fetchPermissionModes: (pane: string) => api.fetchPermissionModes(pane, id),
+    switchPermissionMode: (pane: string, mode: PermissionMode) => api.switchPermissionMode(pane, mode, id),
     fetchPaneOmoActivity: (pane: string) => api.fetchPaneOmoActivity(pane, id),
     closePane: (pane: string) => api.closePane(pane, id),
     renamePane: (pane: string, label: string) => api.renamePane(pane, label, id),
