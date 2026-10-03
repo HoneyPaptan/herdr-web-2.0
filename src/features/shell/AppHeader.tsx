@@ -1,4 +1,4 @@
-import { Bell as BellIcon, CircleDashed, Copy, Ellipsis, FolderOpen, Lock, MessageSquare, PanelLeft, Search, SquareTerminal, Unplug } from "lucide-react";
+import { Bell as BellIcon, CircleDashed, Copy, Ellipsis, FileDiff, FolderOpen, Lock, MessageSquare, PanelLeft, Search, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -19,7 +19,7 @@ import { displayPaneTitle } from "../../components/Sidebar.tsx";
 import { useT } from "../../lib/i18n.ts";
 import { useAppStore } from "../../store/appStore.ts";
 import { selectCanSignOut, selectSelectedMachine, selectSelectedPane, selectSelectedWorkspace, selectTargetHerdr, selectTerminalAttach } from "../../store/selectors.ts";
-import { setView } from "../../store/selection.ts";
+import { openChanges, setView } from "../../store/selection.ts";
 import { openFiles, openPalette, toggleDrawer, toggleSidebarCollapsed } from "../../store/ui.ts";
 import { signOutDevice } from "../feed/sync.ts";
 import type { Bell } from "../alerts/useNotifications.ts";
@@ -89,21 +89,34 @@ function PaneContext({ pane, machineName }: { pane: HerdrPane; machineName: stri
   );
 }
 
+const VIEW_TAB = "inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-1.5 text-ui transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-pressed:text-foreground aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:hover:text-foreground pointer-coarse:h-9 [&_svg]:size-4 [&_svg]:shrink-0";
+const VIEW_LABEL = "max-[560px]:hidden";
+
+function ViewTab({ pressed, label, onClick, icon, children }: { pressed: boolean; label: string; onClick: () => void; icon: ReactNode; children: ReactNode }) {
+  return (
+    <button type="button" aria-pressed={pressed} aria-label={label} onClick={onClick} className={VIEW_TAB}>
+      {icon}
+      {children}
+    </button>
+  );
+}
+
 function ViewSwitch() {
   const t = useT();
-  const view = useAppStore((state) => state.view);
+  const { view, changesOpen } = useAppStore(useShallow((state) => ({ view: state.view, changesOpen: state.changesOpen })));
   const terminalAttach = useAppStore(selectTerminalAttach);
   return (
-    <div className="segmented view-switch shrink-0" role="group" aria-label="Pane view">
-      <button type="button" aria-pressed={view === "chat"} onClick={() => setView("chat")} title={t("Chat transcript (⌘⇧J)")}>
-        <MessageSquare />
-        <span className="header-desktop-only">{t("Chat")}</span>
-      </button>
-      <button type="button" aria-pressed={view === "terminal"} onClick={() => setView("terminal")} title={terminalAttach ? t("Live terminal (⌘⇧J)") : t("Live terminal: coming to Windows PCs once herdr can attach there")}>
-        <SquareTerminal />
-        <span className="header-desktop-only">{t("Terminal")}</span>
-        {!terminalAttach && <span className="pill pill-soon">{t("soon")}</span>}
-      </button>
+    <div className="view-switch flex shrink-0 items-center gap-0.5" role="group" aria-label={t("Pane view")}>
+      <ViewTab pressed={view === "chat" && !changesOpen} label={t("Chat transcript (⌘⇧J)")} onClick={() => setView("chat")} icon={<MessageSquare aria-hidden="true" />}>
+        <span className={VIEW_LABEL}>{t("Chat")}</span>
+      </ViewTab>
+      <ViewTab pressed={view === "terminal" && !changesOpen} label={terminalAttach ? t("Live terminal (⌘⇧J)") : t("Live terminal: coming to Windows PCs once herdr can attach there")} onClick={() => setView("terminal")} icon={<SquareTerminal aria-hidden="true" />}>
+        <span className={VIEW_LABEL}>{t("Terminal")}</span>
+        {!terminalAttach && <span className="pill-soon rounded-sm bg-primary/10 px-1 font-mono text-[0.625rem] text-primary uppercase">{t("soon")}</span>}
+      </ViewTab>
+      <ViewTab pressed={changesOpen} label={t("Changes")} onClick={openChanges} icon={<FileDiff aria-hidden="true" />}>
+        <span className={VIEW_LABEL}>{t("Changes")}</span>
+      </ViewTab>
     </div>
   );
 }

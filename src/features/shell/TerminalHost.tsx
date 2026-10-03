@@ -1,12 +1,15 @@
 import { useShallow } from "zustand/react/shallow";
 
+import { ChangesView } from "../../components/ChangesView.tsx";
 import { PaneTerminal } from "../../components/PaneTerminal.tsx";
+import { useT } from "../../lib/i18n.ts";
 import { useSettings } from "../../lib/settings.ts";
 import { useAppStore } from "../../store/appStore.ts";
 import { handleServerMessage, setConnection, setRole } from "../../store/connection.ts";
 import { selectSelectedPane } from "../../store/selectors.ts";
 
 export function TerminalHost() {
+  const t = useT();
   const { settings, resolvedTheme } = useSettings();
   const target = useAppStore(useShallow((state) => {
     const pane = selectSelectedPane(state);
@@ -18,6 +21,7 @@ export function TerminalHost() {
       agentStatus: pane?.agent_status,
       backgroundTasks: pane?.background_tasks ?? 0,
       view: state.view,
+      changesOpen: state.changesOpen,
       autoSelected: state.autoSelected,
       role: state.role,
     };
@@ -44,6 +48,11 @@ export function TerminalHost() {
         onConnectionChange={setConnection}
         onServerMessage={handleServerMessage}
       />
+      {target.changesOpen && target.paneId && (
+        <section aria-label={t("Changes")} className="absolute inset-0 z-10 flex flex-col bg-background">
+          <ChangesView key={`${target.machineId}:${target.paneId}`} paneId={target.paneId} />
+        </section>
+      )}
     </main>
   );
 }

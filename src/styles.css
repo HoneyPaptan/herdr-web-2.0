@@ -380,71 +380,6 @@ body {
   }
 }
 
-.pill {
-  display: inline-flex;
-  align-items: center;
-  height: var(--chip-h);
-  padding: 0 var(--space-2);
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.pill-soon {
-  height: auto;
-  padding: 0 var(--space-1);
-  margin-left: var(--space-1);
-  color: var(--highlight);
-  border-color: var(--highlight);
-  background: var(--highlight-tint);
-  text-transform: uppercase;
-}
-
-.segmented {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  background: var(--bg-elevated);
-  border: var(--hairline-w) solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.segmented > button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  white-space: nowrap;  height: calc(var(--control-h) - 6px);
-  padding: 0 var(--space-3);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-
-.segmented > button svg {
-  width: 15px;
-  height: 15px;
-}
-
-.segmented > button[aria-pressed="true"] {
-  background: var(--bg-hover);
-  color: var(--text-strong);
-}
-
-.segmented > button[aria-pressed="true"] svg {
-  color: var(--highlight);
-}
-
 .kbd {
   display: inline-flex;
   align-items: center;
@@ -725,15 +660,10 @@ body {
 }
 
 @media (max-width: 480px) {
-  .pill-version,
   .brand-name,
   .header-desktop-only {
     display: none;
   }
-}
-
-@media (max-width: 560px) {
-  .view-switch .header-desktop-only { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

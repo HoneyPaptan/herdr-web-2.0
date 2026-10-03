@@ -29,7 +29,7 @@ export async function checkDefaultView(browser: Browser, origin: string): Promis
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    const lens = () => page.locator(".view-switch button[aria-pressed='true']").getAttribute("title");
+    const lens = () => page.locator(".view-switch button[aria-pressed='true']").getAttribute("aria-label");
     await page.goto(`${origin}/?pane=${encodeURIComponent(one)}`);
     await page.locator(".conn-live").waitFor();
     assert.match((await lens()) ?? "", /^Live terminal/, "a desktop opens an agent pane's terminal by default");
@@ -38,15 +38,15 @@ export async function checkDefaultView(browser: Browser, origin: string): Promis
     await page.getByRole("tab", { name: "Chat", exact: true }).click();
     await page.getByRole("radiogroup", { name: "Panes open in" }).getByRole("radio", { name: "Chat", exact: true }).click();
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("title")?.startsWith("Chat transcript") === true);
+    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("aria-label")?.startsWith("Chat transcript") === true);
     await page.locator(`.pane-select[title^="${two} —"]`).click();
-    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("title")?.startsWith("Chat transcript") === true);
+    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("aria-label")?.startsWith("Chat transcript") === true);
     assert.equal(await page.evaluate((pane) => localStorage.getItem(`herdr-web-ui:view:local:${pane}`), two), null, "what a pane remembered gives way to the choice");
     // a pane switched by hand keeps its lens until the choice changes again
     await page.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
     await page.locator(`.pane-select[title^="${one} —"]`).click();
     await page.locator(`.pane-select[title^="${two} —"]`).click();
-    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("title")?.startsWith("Live terminal") === true);
+    await page.waitForFunction(() => document.querySelector(".view-switch button[aria-pressed='true']")?.getAttribute("aria-label")?.startsWith("Live terminal") === true);
     assert.deepEqual(errors, []);
     console.log("PASS one choice in Settings opens every agent pane in the chat");
   } finally {
