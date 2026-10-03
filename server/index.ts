@@ -12,6 +12,7 @@ import { cameThroughProxy, decideAccess, isLoopbackAddress } from "./access.ts";
 import { DeviceStore, handleDeviceRequest } from "./devices.ts";
 import { remoteAccess, tailscaleIdentity } from "./tailscale.ts";
 import { paneCommands } from "./commands.ts";
+import { paneChangeDiff, paneChanges } from "./changes.ts";
 import { paneFiles } from "./files.ts";
 import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
 import { serveStatic } from "./static.ts";
@@ -1137,6 +1138,22 @@ export function createServer(
           const limit = limitRaw === null ? 20 : Number(limitRaw);
           if (!Number.isInteger(limit) || limit < 1) return badRequest("invalid_limit", "limit must be a positive integer");
           return jsonResponse({ files: await paneFiles(context.cwd, url.searchParams.get("q") ?? "", Math.min(limit, 100)) });
+        } catch (error) {
+          return errorResponse(error);
+        }
+      }
+
+      if (pathname === "/api/pane/changes" || pathname === "/api/pane/changes/diff") {
+        if (request.method !== "GET") return badRequest("method_not_allowed", "use GET");
+        const paneId = url.searchParams.get("pane_id");
+        if (!paneId) return badRequest("missing_pane_id", "pane_id query parameter is required");
+        try {
+          const { cwd } = await paneContext(paneId);
+          if (pathname === "/api/pane/changes") return jsonResponse(await paneChanges(cwd));
+          const path = url.searchParams.get("path");
+          if (!path) return badRequest("missing_path", "path query parameter is required");
+          const diff = await paneChangeDiff(cwd, path);
+          return diff ? jsonResponse(diff) : jsonResponse({ error: { code: "not_changed", message: "that file has no uncommitted change" } }, 404);
         } catch (error) {
           return errorResponse(error);
         }
