@@ -1,18 +1,7 @@
-import { useId, useRef, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-
-const NARROW = "(max-width: 767px)";
-
-function subscribeNarrow(onChange: () => void): () => void {
-  const query = window.matchMedia(NARROW);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function useNarrow(): boolean {
-  return useSyncExternalStore(subscribeNarrow, () => window.matchMedia(NARROW).matches, () => false);
-}
+import { useNarrow } from "../lib/useNarrow.ts";
 
 export interface SettingsTab<T extends string> {
   id: T;
