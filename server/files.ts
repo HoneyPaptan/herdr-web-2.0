@@ -4,7 +4,7 @@ import { join, relative, sep } from "node:path";
 const CACHE_MS = 5_000;
 const MAX_ENTRIES = 5_000;
 const MAX_DEPTH = 6;
-const SKIP: Record<string, true> = { ".git": true, node_modules: true, dist: true, target: true, ".venv": true };
+const SKIP: Record<string, true> = { node_modules: true, dist: true, target: true, __pycache__: true };
 const cache = new Map<string, { expires: number; files: string[] }>();
 
 async function gitFiles(cwd: string): Promise<string[] | null> {
@@ -19,28 +19,38 @@ async function gitFiles(cwd: string): Promise<string[] | null> {
   }
 }
 
+function skipDirectory(name: string): boolean {
+  return name.startsWith(".") || SKIP[name] === true;
+}
+
 function walkFiles(cwd: string): string[] {
   const files: string[] = [];
   let visited = 0;
-  const visit = (directory: string, depth: number): void => {
-    if (depth > MAX_DEPTH || visited >= MAX_ENTRIES) return;
-    let entries;
-    try {
-      entries = readdirSync(directory, { withFileTypes: true });
-    } catch {
-      return;
+  let level = [cwd];
+  for (let depth = 0; depth <= MAX_DEPTH && level.length > 0 && visited < MAX_ENTRIES; depth += 1) {
+    const next: string[] = [];
+    for (const directory of level) {
+      let entries;
+      try {
+        entries = readdirSync(directory, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      entries.sort((left, right) => left.name.localeCompare(right.name));
+      for (const entry of entries) {
+        if (visited >= MAX_ENTRIES) break;
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          if (!skipDirectory(entry.name)) next.push(path);
+          continue;
+        }
+        if (!entry.isFile()) continue;
+        visited += 1;
+        files.push(relative(cwd, path).split(sep).join("/"));
+      }
     }
-    entries.sort((left, right) => Number(left.isDirectory()) - Number(right.isDirectory()) || left.name.localeCompare(right.name));
-    for (const entry of entries) {
-      if (visited >= MAX_ENTRIES) break;
-      if (SKIP[entry.name]) continue;
-      visited += 1;
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) visit(path, depth + 1);
-      else if (entry.isFile()) files.push(relative(cwd, path).split(sep).join("/"));
-    }
-  };
-  visit(cwd, 0);
+    level = next;
+  }
   return files;
 }
 
@@ -70,13 +80,17 @@ function score(path: string, query: string): number {
   return -1;
 }
 
+function depth(path: string): number {
+  return path.split("/").length;
+}
+
 export async function paneFiles(cwd: string, query = "", limit = 20): Promise<string[]> {
   const normalized = query.trim().toLowerCase();
   const boundedLimit = Math.min(100, Math.max(1, Math.trunc(limit) || 20));
   return (await inventory(cwd))
     .map((path) => ({ path, score: score(path, normalized) }))
     .filter((item) => item.score >= 0)
-    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .sort((left, right) => right.score - left.score || depth(left.path) - depth(right.path) || left.path.localeCompare(right.path))
     .slice(0, boundedLimit)
     .map((item) => item.path);
 }

@@ -43,7 +43,8 @@ export function activeTrigger(text: string, caret: number, options: { skills?: b
   const at = text.lastIndexOf("@", Math.max(0, caret - 1));
   if (at < lineStart) return null;
   const query = text.slice(at + 1, caret);
-  if (query.length === 0 || !FILE_QUERY.test(query)) return null;
+  if (query.length === 0) return at === lineStart || /\s/u.test(text[at - 1] ?? "") ? { kind: "file", query, start: at, end: tokenEnd(text, caret) } : null;
+  if (!FILE_QUERY.test(query)) return null;
   return { kind: "file", query, start: at, end: tokenEnd(text, caret) };
 }
 

@@ -31,6 +31,15 @@ describe("paneFiles", () => {
     expect(await paneFiles(root, "", 2)).toHaveLength(2);
   });
 
+  it("skips hidden directories outside git and lists shallow files first", async () => {
+    const root = fixture();
+    mkdirSync(join(root, ".cache", "deep"), { recursive: true });
+    writeFileSync(join(root, ".cache", "deep", "readme.txt"), "cache");
+    writeFileSync(join(root, ".env"), "KEY=1");
+    expect(await paneFiles(root, "readme", 20)).toEqual(["README.md"]);
+    expect(await paneFiles(root, "", 3)).toEqual([".env", "README.md", "src/api.ts"]);
+  });
+
   it("uses tracked and untracked non-ignored files in a git repository", async () => {
     const root = fixture();
     const init = Bun.spawnSync(["git", "init", "-q", root]);

@@ -17,9 +17,11 @@ describe("activeTrigger", () => {
     expect(activeTrigger("/review this", 12)).toBeNull();
   });
 
-  it("finds file mentions with at least one query character anywhere on a line", () => {
+  it("finds file mentions anywhere on a line, and a bare @ only where a word starts", () => {
     expect(activeTrigger("see @src/com", 12)).toEqual({ kind: "file", query: "src/com", start: 4, end: 12 });
-    expect(activeTrigger("@", 1)).toBeNull();
+    expect(activeTrigger("@", 1)).toEqual({ kind: "file", query: "", start: 0, end: 1 });
+    expect(activeTrigger("see @", 5)).toEqual({ kind: "file", query: "", start: 4, end: 5 });
+    expect(activeTrigger("mail me@", 8)).toBeNull();
     expect(activeTrigger("one\nopen @lib", 13)).toEqual({ kind: "file", query: "lib", start: 9, end: 13 });
   });
 
