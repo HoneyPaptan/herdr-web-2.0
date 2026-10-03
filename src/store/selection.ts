@@ -31,8 +31,12 @@ export function selectAdjacentPane(direction: -1 | 1): void {
 
 export function setView(view: PaneView): void {
   const { selectedMachineId, selectedPaneId } = getApp();
-  setApp({ view, autoSelected: false });
+  setApp({ view, changesOpen: false, autoSelected: false });
   if (selectedPaneId !== null) rememberView(selectedMachineId, selectedPaneId, view);
+}
+
+export function openChanges(): void {
+  setApp({ changesOpen: true, autoSelected: false });
 }
 
 export function toggleView(): void {

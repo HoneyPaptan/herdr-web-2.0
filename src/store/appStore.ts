@@ -27,6 +27,7 @@ export interface SelectionSlice {
   selectedPaneId: string | null;
   autoSelected: boolean;
   view: PaneView;
+  changesOpen: boolean;
 }
 
 export interface UiSlice {
@@ -64,6 +65,7 @@ const initialSelection = (): SelectionSlice => ({
   selectedPaneId: initialPaneId(),
   autoSelected: false,
   view: "terminal",
+  changesOpen: false,
 });
 
 const initialUi = (): UiSlice => ({
