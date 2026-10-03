@@ -38,6 +38,7 @@ import { CODEX_IMAGE_REF, codexTranscriptImage } from "./codex-images.ts";
 import { claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
 import { forgetGjcState, gjcTranscriptForPane, storeRelative } from "./gjc-runtime.ts";
 import { isOmoProcess, omoTranscriptForPane } from "./omo.ts";
+import { isOpencodeSession, opencodeDbPath, readOpencodeConversation, readOpencodeToolOutput } from "./opencode-store.ts";
 import { piTranscriptPath } from "./pi.ts";
 import { piAbandonedTurns, piBranchSegments } from "./pi-tree.ts";
 import { trimOutput } from "./tool-output.ts";
@@ -248,8 +249,10 @@ export class HistoryChanged extends Error {
 }
 
 /** What paneConversation resolved: which store the turns came from, and where they start. */
+type TranscriptSource = "claude-transcript" | "omp-transcript" | "omo-transcript" | "gjc-transcript" | "pi-transcript" | "codex-transcript";
+
 export type RecognizedConversation = {
-  source: "claude-transcript" | "omp-transcript" | "omo-transcript" | "gjc-transcript" | "pi-transcript" | "codex-transcript";
+  source: TranscriptSource | "opencode-transcript";
   turns: ConversationTurn[];
   metadata: ConversationMetadata;
   /** the first turn's position, for the page before it; null at the conversation's beginning */
@@ -306,7 +309,7 @@ function transcriptGeneration(path: string, stat: { dev: number; ino: number; si
   return generation ? `-${generation}` : "";
 }
 
-function transcriptStream(source: RecognizedConversation["source"], path: string, stat: { dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number }, codexHome: string): TranscriptStream {
+function transcriptStream(source: TranscriptSource, path: string, stat: { dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number }, codexHome: string): TranscriptStream {
   // (a chain whose parent was archived since comes back shorter: codexHistorySegments;
   // a pi branch skips the side paths a /tree left behind: piBranchSegments)
   const branch = source === "pi-transcript" ? piBranchSegments(path, stat.size) : null;
@@ -372,7 +375,7 @@ function readStream(stream: TranscriptStream, from: number, to: number): Buffer 
  * is otherwise never read, and the chat showed the level the session started at. */
 const SETTING_TYPES = ['"model_change"', '"thinking_level_change"'];
 const clearScans = new Map<string, { id: string; scanned: number; floor: number; tail: string; settings: Partial<Record<"model_change" | "thinking_level_change", { offset: number; end: number; line: string }>> }>();
-function applyHistoryBoundary(path: string, stream: TranscriptStream, source: RecognizedConversation["source"]): void {
+function applyHistoryBoundary(path: string, stream: TranscriptStream, source: TranscriptSource): void {
   if (source === "codex-transcript") return;
   let scan = clearScans.get(path);
   if (!scan || scan.id !== stream.id || scan.scanned > stream.length || bytesBefore(stream, scan.scanned) !== scan.tail) {
@@ -416,7 +419,7 @@ function applyHistoryBoundary(path: string, stream: TranscriptStream, source: Re
 }
 
 /** Bytes that every line opening a turn contains: a cheap filter before JSON.parse. */
-const TURN_MARK: Record<RecognizedConversation["source"], Buffer> = {
+const TURN_MARK: Record<TranscriptSource, Buffer> = {
   "codex-transcript": Buffer.from('"task_started"'),
   "claude-transcript": Buffer.from('"user"'),
   "omp-transcript": Buffer.from('"user"'),
@@ -431,7 +434,7 @@ const TURN_MARK: Record<RecognizedConversation["source"], Buffer> = {
  * task_started), a Claude or omp prompt (tool results answer the turn before it),
  * and the same for pi, whose prompts are `message` records with a user role.
  */
-function opensTurn(source: RecognizedConversation["source"], line: string): boolean {
+function opensTurn(source: TranscriptSource, line: string): boolean {
   let entry: { type?: unknown; isMeta?: unknown; isCompactSummary?: unknown; payload?: { type?: unknown }; message?: { role?: unknown; content?: unknown } };
   try { entry = JSON.parse(line); } catch { return false; }
   if (entry === null || typeof entry !== "object") return false;
@@ -447,7 +450,7 @@ function opensTurn(source: RecognizedConversation["source"], line: string): bool
     block?.type === "text" && typeof block.text === "string" && !isCommandEntry(block.text.trim()));
 }
 
-function turnStarts(bytes: Buffer, source: RecognizedConversation["source"]): number[] {
+function turnStarts(bytes: Buffer, source: TranscriptSource): number[] {
   const starts: number[] = [];
   for (let offset = 0; offset < bytes.length;) {
     const newline = bytes.indexOf(0x0a, offset);
@@ -467,7 +470,7 @@ function turnStarts(bytes: Buffer, source: RecognizedConversation["source"]): nu
  * every append, so it never does: with no turn start in its window it starts
  * mid-turn, at a whole line.
  */
-function pageBefore(stream: TranscriptStream, source: RecognizedConversation["source"], to: number, { floor = stream.floor, widen }: { floor?: number; widen: boolean }): { start: number; bytes: Buffer } {
+function pageBefore(stream: TranscriptStream, source: TranscriptSource, to: number, { floor = stream.floor, widen }: { floor?: number; widen: boolean }): { start: number; bytes: Buffer } {
   let from = Math.max(floor, to - TRANSCRIPT_WINDOW_BYTES);
   let bytes = readStream(stream, from, to);
   for (;;) {
@@ -494,7 +497,7 @@ function pageBefore(stream: TranscriptStream, source: RecognizedConversation["so
  */
 interface LiveScan {
   id: string;
-  source: RecognizedConversation["source"];
+  source: TranscriptSource;
   /** complete lines up to here are scanned */
   scanned: number;
   /** turn starts in the scanned bytes, ascending, none before the window */
@@ -527,7 +530,7 @@ function remember<T>(map: Map<string, T>, key: string, value: T, limit: number):
 }
 
 /** The newest page's start and every turn start in it (pageBefore without widening), or null when it starts mid-turn. */
-function newestPage(path: string, stream: TranscriptStream, source: RecognizedConversation["source"]): { start: number; starts: number[] } | null {
+function newestPage(path: string, stream: TranscriptStream, source: TranscriptSource): { start: number; starts: number[] } | null {
   const from = Math.max(stream.floor, stream.length - TRANSCRIPT_WINDOW_BYTES);
   let scan = liveScans.get(path);
   // a window that slid past the scanned bytes starts over at its edge (a line may be cut
@@ -554,7 +557,7 @@ function newestPage(path: string, stream: TranscriptStream, source: RecognizedCo
   return start === undefined ? null : { start, starts };
 }
 
-function parseTurns(source: RecognizedConversation["source"], text: string): ConversationTurn[] {
+function parseTurns(source: TranscriptSource, text: string): ConversationTurn[] {
   return source === "codex-transcript" ? parseCodexTranscript(text, Infinity)
     // only pi keeps a tool's images in the entry as base64; omp, omo and gjc are read the same
     // way but would carry image refs nothing can answer, so the option stays with pi alone
@@ -602,7 +605,7 @@ function codexLiveTurn(path: string, stream: TranscriptStream, start: number, be
 
 /** Codex settings belong to the live rollout; native clears bound other stores. A model or
  * thinking-level change after the head and before the page follows the head, in order. */
-function metadataHead(path: string, stream: TranscriptStream, source: RecognizedConversation["source"], start: number): string {
+function metadataHead(path: string, stream: TranscriptStream, source: TranscriptSource, start: number): string {
   if (source === "codex-transcript") return readRange(path, 0, METADATA_HEAD_BYTES);
   const end = Math.min(start, stream.floor + METADATA_HEAD_BYTES);
   const later = Object.values(clearScans.get(path)?.settings ?? {})
@@ -617,7 +620,7 @@ function metadataHead(path: string, stream: TranscriptStream, source: Recognized
  * The newest page's turns from `start`: the settled ones (before the last turn start)
  * from memory, extended by any turn that has since been followed, plus the live last turn.
  */
-function liveTurns(path: string, stream: TranscriptStream, source: RecognizedConversation["source"], start: number, starts: number[]): { turns: ConversationTurn[]; metadata: ConversationMetadata } {
+function liveTurns(path: string, stream: TranscriptStream, source: TranscriptSource, start: number, starts: number[]): { turns: ConversationTurn[]; metadata: ConversationMetadata } {
   // starts ascend: the last one, when it lies past the page start
   const last = Math.max(start, starts[starts.length - 1] ?? start);
   const key = `${path}\0${start}`;
@@ -743,7 +746,7 @@ async function ompTranscriptPath(paneId: string): Promise<string> {
  * label: omo's own store is read only when omo is really running
  * in that pane, never on a matching cwd alone.
  */
-async function resolveTranscript(pane: HerdrPane, cwd: string, codexHome?: string, panes?: HerdrPane[]): Promise<{ source: RecognizedConversation["source"]; path: string }> {
+async function resolveTranscript(pane: HerdrPane, cwd: string, codexHome?: string, panes?: HerdrPane[]): Promise<{ source: TranscriptSource; path: string }> {
   const paneId = pane.pane_id;
   const agent = pane.agent ?? pane.agent_session?.agent ?? "";
   if ((agent === "omo" || agent === "pi" || agent === "claude") && await paneRunsOmo(paneId)) {
@@ -799,12 +802,27 @@ export async function paneConversation(paneId: string, codexHome?: string, page:
   if (pane === undefined) throw new ConversationUnavailable("pane_not_found");
   if (typeof pane.cwd !== "string" || pane.cwd.length === 0) throw new ConversationUnavailable("no_recognized_transcript");
 
+  if (pane.agent === "opencode") return opencodeConversation(await opencodeSessionOf(paneId));
   const { source, path } = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes);
   return transcriptPage(source, path, page, codexHome);
 }
 
+async function opencodeSessionOf(paneId: string): Promise<string> {
+  const info = await herdrRpc<{ agent: { agent_session?: { value?: unknown } } }>("agent.get", { target: paneId });
+  const session = info.agent.agent_session?.value;
+  if (!isOpencodeSession(session)) throw new ConversationUnavailable("no_session_id");
+  return session;
+}
+
+export function opencodeConversation(sessionId: string, dbPath = opencodeDbPath()): RecognizedConversation {
+  let read: ReturnType<typeof readOpencodeConversation>;
+  try { read = readOpencodeConversation(dbPath, sessionId); } catch { throw new ConversationUnavailable("transcript_missing"); }
+  if (read === null) throw new ConversationUnavailable("transcript_missing");
+  return { source: "opencode-transcript", turns: read.turns, metadata: read.metadata, cursor: null, history_id: sessionId, version: answerVersion(`${dbPath}\0${sessionId}`, read.signature) };
+}
+
 /** One page of a resolved transcript (paneConversation's `page`). */
-export function transcriptPage(source: RecognizedConversation["source"], path: string, page: ConversationPage = {}, codexHome?: string): RecognizedConversation {
+export function transcriptPage(source: TranscriptSource, path: string, page: ConversationPage = {}, codexHome?: string): RecognizedConversation {
   let stat: { dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number };
   try {
     stat = statSync(path);
@@ -897,7 +915,7 @@ export async function conversationImage(paneId: string, ref: string, codexHome?:
   const snapshot = await sessionSnapshot();
   const pane = snapshot.panes.find((candidate) => candidate.pane_id === paneId);
   if (pane === undefined || typeof pane.cwd !== "string" || pane.cwd.length === 0) return null;
-  let resolved: { source: RecognizedConversation["source"]; path: string };
+  let resolved: { source: TranscriptSource; path: string };
   try { resolved = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes); }
   catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
   if (resolved.source === "codex-transcript") return codexTranscriptImage(codexHistorySegments(resolved.path, codexHome), ref, pane.cwd);
@@ -940,14 +958,21 @@ export async function toolOutput(paneId: string, ref: string, codexHome?: string
   const snapshot = await sessionSnapshot();
   const pane = snapshot.panes.find((candidate) => candidate.pane_id === paneId);
   if (pane === undefined || typeof pane.cwd !== "string" || pane.cwd.length === 0) return null;
-  let resolved: { source: RecognizedConversation["source"]; path: string };
+  if (pane.agent === "opencode") return opencodeToolOutput(paneId, ref);
+  let resolved: { source: TranscriptSource; path: string };
   try { resolved = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes); }
   catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
   return transcriptToolOutput(resolved.source, resolved.path, ref, codexHome);
 }
 
+async function opencodeToolOutput(paneId: string, ref: string): Promise<string | null> {
+  let session: string;
+  try { session = await opencodeSessionOf(paneId); } catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
+  try { return readOpencodeToolOutput(opencodeDbPath(), session, ref); } catch { return null; }
+}
+
 /** The output a transcript file holds for one tool call id, whole (up to TOOL_OUTPUT_MAX). */
-export function transcriptToolOutput(source: RecognizedConversation["source"], path: string, ref: string, codexHome?: string): string | null {
+export function transcriptToolOutput(source: TranscriptSource, path: string, ref: string, codexHome?: string): string | null {
   if (!TOOL_REF.test(ref)) return null;
   if (source === "codex-transcript") {
     let segments: ReturnType<typeof codexHistorySegments>;
@@ -1023,7 +1048,7 @@ export function piTranscriptImage(path: string, ref: string): { mediaType: strin
 
 const PI_IMAGE_REF = /^pi:([A-Za-z0-9_:.\-]{1,128}):(\d{1,3})$/;
 
-function outputInText(source: RecognizedConversation["source"], text: string, ref: string): string | null {
+function outputInText(source: TranscriptSource, text: string, ref: string): string | null {
   text = activeHistoryText(text, source);
   const needle = JSON.stringify(ref);
   for (const line of text.split("\n")) {
@@ -1048,7 +1073,7 @@ function outputInText(source: RecognizedConversation["source"], text: string, re
 }
 
 /** Asset reads share the reset boundary even when their ref predates /clear. */
-function activeHistoryText(text: string, source: RecognizedConversation["source"]): string {
+function activeHistoryText(text: string, source: TranscriptSource): string {
   if (source === "codex-transcript") return text;
   let start = 0, offset = 0;
   for (const line of text.split("\n")) {
