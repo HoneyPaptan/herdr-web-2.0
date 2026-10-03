@@ -1,10 +1,7 @@
 import type { AgentStatus } from "../../shared/protocol.ts";
-import { cn } from "@/lib/utils";
 import { useT } from "../lib/i18n.ts";
-import { knownStatus, STATUS_WORD, type KnownStatus } from "../lib/status.ts";
+import { knownStatus, STATUS_WORD } from "../lib/status.ts";
 import { Orb } from "./Orb.tsx";
-
-const STILL_ORB: Partial<Record<KnownStatus, string>> = { idle: "opacity-40", done: "opacity-100" };
 
 function WaitingMark() {
   const t = useT();
@@ -22,10 +19,8 @@ export function StatusRail({ status }: { status?: AgentStatus }) {
 
 export function StatusOrb({ status }: { status?: AgentStatus }) {
   const t = useT();
-  const value = knownStatus(status);
-  const still = STILL_ORB[value];
-  if (value !== "working" && !still) return null;
-  return <Orb state="listening" paused={value !== "working"} role="img" aria-label={t(STATUS_WORD[value])} className={cn("shrink-0", still)} />;
+  if (knownStatus(status) !== "working") return null;
+  return <Orb state="listening" role="img" aria-label={t(STATUS_WORD.working)} className="shrink-0" />;
 }
 
 export function StatusMark({ status }: { status?: AgentStatus }) {
