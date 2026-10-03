@@ -79,6 +79,17 @@ describe("recorded conversation model settings", () => {
     ), "claude-transcript")).toEqual({ model: "claude-test", reasoning_effort: "medium" });
   });
 
+  it("takes Claude's model, and any effort it names, from a /model command before the next reply", () => {
+    const stdout = (text: string) => ({ type: "user", message: { role: "user", content: `<local-command-stdout>${text}</local-command-stdout>` } });
+    const before = { type: "assistant", effort: "low", message: { role: "assistant", model: "claude-opus-5-5" } };
+    expect(parseConversationMetadata(jsonl(before, stdout("Set model to `Fable 5.1` and saved as your default for new sessions")), "claude-transcript"))
+      .toEqual({ model: "claude-fable-5-1", reasoning_effort: "low" });
+    expect(parseConversationMetadata(jsonl(before, stdout("Set model to `Opus 5 (1M context) (default)` and saved as your default for new sessions with `xhigh` effort")), "claude-transcript"))
+      .toEqual({ model: "claude-opus-5", reasoning_effort: "xhigh" });
+    expect(parseConversationMetadata(jsonl(before, stdout("Kept model as `Opus 5.5 (1M context) (default)`")), "claude-transcript"))
+      .toEqual({ model: "claude-opus-5-5", reasoning_effort: "low" });
+  });
+
   it("tolerates absent metadata, unexpected types and a torn append without losing valid settings", () => {
     const text = jsonl(null, [], { type: "turn_context", payload: null },
       { type: "turn_context", payload: { model: "recorded", effort: "medium" } },

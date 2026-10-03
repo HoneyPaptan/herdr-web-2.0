@@ -94,15 +94,26 @@ export function parseConversationMetadata(text: string, source: ConversationResp
       }
       // Claude Code records the effort each response ran at; versions before it record none
       if (entry.type === "assistant" && "effort" in entry) metadata.reasoning_effort = label(entry.effort);
-      const picked = entry.type === "user" ? effortCommandResult(message.content) : null;
-      if (picked) metadata.reasoning_effort = picked;
+      const command = entry.type === "user" ? localCommandResult(message.content) : {};
+      if (command.model) metadata.model = command.model;
+      if (command.effort) metadata.reasoning_effort = command.effort;
     }
   }
   return metadata;
 }
 
 const EFFORT_SET = /<local-command-stdout>Set effort level to ([a-z]+)\b/;
+const MODEL_SET = /<local-command-stdout>(?:Set model to|Kept model as) `([A-Za-z]+) (\d+)(?:\.(\d+))?\b[^`]*`(?:[^<]*? with `([a-z]+)` effort)?/;
 
-function effortCommandResult(content: unknown): string | null {
-  return typeof content === "string" ? EFFORT_SET.exec(content)?.[1] ?? null : null;
+function modelId(family: string, major: string, minor: string | undefined): string {
+  return ["claude", family.toLowerCase(), major, ...(minor ? [minor] : [])].join("-");
+}
+
+function localCommandResult(content: unknown): { model?: string; effort?: string } {
+  if (typeof content !== "string") return {};
+  const effort = EFFORT_SET.exec(content)?.[1];
+  if (effort) return { effort };
+  const model = MODEL_SET.exec(content);
+  if (!model) return {};
+  return { model: modelId(model[1]!, model[2]!, model[3]), ...(model[4] ? { effort: model[4] } : {}) };
 }
