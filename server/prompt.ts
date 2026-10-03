@@ -28,7 +28,7 @@ const CLAUDE_TABS_RE = /^←\s+[☐☒☑✔]/;
 // plain rows, `❯` on the selected one, under this hint
 const CLAUDE_CONFIRM_HINT_RE = /enter to confirm.*esc to (?:cancel|exit|go back)/i;
 const SOLID_RULE_RE = /^[─━]{8,}$/;
-const PANEL_RULE_RE = /[─━]{8,}/;
+const PANEL_RULE_RE = /[─━▔]{8,}/;
 const PANEL_SCAN_LINES = 30;
 const CODEX_APPROVAL_HEADER_RE =
   /(?:Would you like to (?:run|make|apply|continue|grant)|Allow Codex to|Approve (?:this )?(?:app )?tool call|Do you trust the contents|Trust this folder\?|Enable full access)/i;

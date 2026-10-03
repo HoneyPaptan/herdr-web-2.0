@@ -850,6 +850,14 @@ ${after}`;
     expect(answerKeys(moved, { option_index: 0 })).toEqual([{ keys: ["up"] }, { keys: ["enter"] }]);
   });
 
+  test("reads it under the overlay rule Claude draws with upper eighth blocks", () => {
+    const overlay = switchModel(0).replace(/^─+ 6% until auto-compact ─$/m, `${"▔".repeat(60)} ▔`);
+    const prompt = parseInteractivePrompt("claude", overlay)!;
+    expect(prompt).not.toBeNull();
+    expect(prompt.title).toBe("Switch model?");
+    expect(labels(prompt)).toEqual(["Yes, switch to Fable 5.1", "No, go back"]);
+  });
+
   test("is gone once anything is drawn under the rows", () => {
     expect(parseInteractivePrompt("claude", switchModel(0, "\n❯ \n  ? for shortcuts\n"))).toBeNull();
   });
