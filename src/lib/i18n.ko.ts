@@ -602,6 +602,8 @@ export const KO: Record<string, string> = {
   "failed": "실패",
   "Error": "오류",
   "{n} failed": "실패 {n}개",
+  "Starting the agent…": "에이전트를 시작하는 중…",
+  "Can't reach this session. Retrying…": "이 세션에 연결할 수 없습니다. 다시 시도하는 중…",
   "Loading conversation…": "대화를 불러오는 중…",
   "Jump to latest": "최신 메시지로 이동",
   "Open image": "이미지 열기",

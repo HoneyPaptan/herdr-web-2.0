@@ -604,6 +604,8 @@ export const JA: Record<string, string> = {
   "failed": "失敗",
   "Error": "エラー",
   "{n} failed": "失敗 {n} 件",
+  "Starting the agent…": "エージェントを起動しています…",
+  "Can't reach this session. Retrying…": "このセッションに接続できません。再試行しています…",
   "Loading conversation…": "会話を読み込んでいます…",
   "Jump to latest": "最新に移動",
   "Open image": "画像を開く",

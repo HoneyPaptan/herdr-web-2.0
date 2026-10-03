@@ -606,6 +606,8 @@ export const ZH: Record<string, string> = {
   "failed": "失败",
   "Error": "错误",
   "{n} failed": "{n} 个失败",
+  "Starting the agent…": "正在启动智能体…",
+  "Can't reach this session. Retrying…": "无法连接此会话，正在重试…",
   "Loading conversation…": "正在加载对话…",
   "Jump to latest": "跳转到最新",
   "Open image": "打开图片",

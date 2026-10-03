@@ -38,7 +38,7 @@ import { formatTokens } from "../lib/compose.ts";
 const ChatPaneContext = createContext<string | null>(null);
 const ChatHistoryContext = createContext("");
 import type { TypedAnswer } from "../lib/promptAnswer.ts";
-import type { AgentStatus, ConversationMetadata, ConversationPart, ConversationTurn, InteractivePrompt } from "../../shared/protocol.ts";
+import type { AgentStatus, ConversationMetadata, ConversationPart, ConversationTurn, InteractivePrompt, ScrollbackReason } from "../../shared/protocol.ts";
 import { currentLocale, useT } from "../lib/i18n.ts";
 
 const TRANSCRIPT_LINES = 400;
@@ -66,9 +66,12 @@ interface ChatState {
   turns: ConversationTurn[];
   messages: TranscriptMessage[];
   truncated: boolean;
+  reason: ScrollbackReason | null;
 }
 
-const EMPTY_STATE: ChatState = { source: "conversation", turns: [], messages: [], truncated: false };
+const EMPTY_STATE: ChatState = { source: "conversation", turns: [], messages: [], truncated: false, reason: null };
+const QUIET_FAILURES = 3;
+const STARTING_STATUSES = new Set<AgentStatus>(["unknown", "working"]);
 
 
 function formatTime(ts: string | null): string | null {
@@ -449,6 +452,16 @@ const Turn = memo(function Turn({ paneId, turn, live, last, showThinking }: Turn
   </article>;
 });
 
+type WaitingMode = "opening" | "starting" | "empty";
+
+function ChatWaiting({ agent, mode }: { agent: string | null; mode: WaitingMode }) {
+  const t = useT();
+  return <div className={CHAT_EMPTY} role="status">
+    {mode === "empty" ? <AgentMark agent={agent ?? "agent"} size={32} /> : <Orb state="listening" aria-hidden="true" />}
+    <p className="m-0 text-ui">{t(mode === "opening" ? "Loading conversation…" : mode === "starting" ? "Starting the agent…" : "No conversation yet. Say something below")}</p>
+  </div>;
+}
+
 function FallbackTurn({ paneId, message }: { paneId: string; message: TranscriptMessage }) {
   if (message.role === "status") return null;
   const turn: ConversationTurn = { role: message.role === "user" ? "user" : "assistant", ts: null, parts: [{ kind: "text", text: message.text }] };
@@ -461,6 +474,7 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
   const { settings } = useSettings();
   const visible = usePageVisible();
   const lastAnswer = useRef<unknown>(null);
+  const failures = useRef(0);
   const [state, setState] = useState<ChatState>(EMPTY_STATE);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
@@ -559,7 +573,7 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
           history.current = conversation.history_id; setHistoryId(conversation.history_id);
           stickToBottom.current = true; setNewMessages(false); setAway(false);
         }
-        if (conversation === lastAnswer.current) { setError(null); setErrorStatus(null); return; }
+        if (conversation === lastAnswer.current) { failures.current = 0; setError(null); setErrorStatus(null); return; }
         const held = heldFrom.current;
         let moved: ConversationTurn[] = [];
         if (held !== null && conversation.source !== "scrollback" && typeof conversation.cursor === "string" && conversation.cursor !== held) {
@@ -576,11 +590,11 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
         onMetadata?.(paneId, conversation.source === "scrollback" ? null : conversation.metadata ?? null);
         setAbandoned(conversation.abandoned ?? null);
         let next: ChatState;
-        if (conversation.source !== "scrollback") next = { source: "conversation", turns: conversation.turns, messages: [], truncated: false };
+        if (conversation.source !== "scrollback") next = { source: "conversation", turns: conversation.turns, messages: [], truncated: false, reason: null };
         else {
           const result = await fetchPaneTranscript(paneId, TRANSCRIPT_LINES);
           if (cancelled) return;
-          next = { source: "scrollback", turns: [], messages: toTranscriptMessages(result.text).filter((message) => message.role !== "status"), truncated: result.truncated === true };
+          next = { source: "scrollback", turns: [], messages: toTranscriptMessages(result.text).filter((message) => message.role !== "status"), truncated: result.truncated === true, reason: conversation.scrollback_reason ?? "no_reader" };
         }
         const nextSignature = JSON.stringify(next);
         if (nextSignature !== signature.current) {
@@ -588,10 +602,14 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
           signature.current = nextSignature;
           setState(next);
         }
+        failures.current = 0;
         setError(null); setErrorStatus(null); setLoaded(true);
         lastAnswer.current = conversation;
       } catch (cause) {
         if (cancelled || generation !== olderGeneration.current) return;
+        failures.current += 1;
+        const locked = cause instanceof ApiError && cause.status === 401;
+        if (!locked && failures.current < QUIET_FAILURES) return;
         setLoaded(true);
         setError(cause instanceof Error ? cause.message : String(cause));
         setErrorStatus(cause instanceof ApiError ? cause.status : null);
@@ -715,6 +733,12 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
   heldPage.current = state.turns;
   const finishedBeforeSend = sentOver !== null && sentOver.page === state.turns ? sentOver.turn : null;
   const empty = state.source === "conversation" ? turns.length === 0 : state.messages.length === 0;
+  const awaitingSession = state.source === "scrollback" && agent !== null && state.reason === "not_started";
+  const waiting: WaitingMode | null = error !== null || prompt !== null ? null
+    : !loaded ? "opening"
+    : awaitingSession && STARTING_STATUSES.has(agentStatus ?? "unknown") ? "starting"
+    : empty || awaitingSession ? "empty"
+    : null;
 
   return <ChatPaneContext.Provider value={paneId}><ChatHistoryContext.Provider value={historyId ?? ""}><div className="chat-view absolute inset-0 z-1 overflow-y-auto bg-background px-4 pt-6 pb-5 md:px-6" ref={scroller} onScroll={onScroll} role="log" aria-live="polite" aria-label={t("conversation of {pane}", { pane: paneId })}>
     <div className="chat-transcript mx-auto flex min-h-full w-[min(100%,var(--content-w))] flex-col gap-4 [font-family:var(--font-chat,var(--font-ui))] text-chat">
@@ -743,12 +767,13 @@ export const ChatView = memo(function ChatView({ paneId, refreshKey, sentKey = 0
             </RenderBoundary>;
           })
         : agent !== null
-          ? <details className="chat-terminal-fallback text-ui text-muted-foreground"><summary className="cursor-pointer">{t("Conversation unavailable. Show terminal output")}</summary><pre className={INNER_PRE}>{state.messages.map((message) => message.text).join("\n\n")}</pre></details>
+          ? !awaitingSession && <details className="chat-terminal-fallback text-ui text-muted-foreground"><summary className="cursor-pointer">{t("Conversation unavailable. Show terminal output")}</summary><pre className={INNER_PRE}>{state.messages.map((message) => message.text).join("\n\n")}</pre></details>
           : state.messages.map((message, index) => <FallbackTurn key={index} paneId={paneId} message={message} />)}
       {!ended && !connected && <p className={STATE_LINE}>{t("reconnecting…")}</p>}
-      {error !== null && <p className={cn(STATE_LINE, "text-destructive")} role="alert">{errorStatus === 401 ? t("Locked: the token gate is asking again") : error}</p>}
-      {!loaded && error === null && <p className={STATE_LINE} role="status">{t("Loading conversation…")}</p>}
-      {loaded && empty && error === null && prompt === null && <div className={CHAT_EMPTY}><AgentMark agent={agent ?? "agent"} size={32} /><p className="m-0 text-ui">{t("No conversation yet. Say something below")}</p></div>}
+      {error !== null && (errorStatus === 401
+        ? <p className={cn(STATE_LINE, "text-destructive")} role="alert">{t("Locked: the token gate is asking again")}</p>
+        : <p className={STATE_LINE} role="status">{t("Can't reach this session. Retrying…")}</p>)}
+      {waiting !== null && <ChatWaiting agent={agent} mode={waiting} />}
       {prompt !== null && <PromptCard paneId={paneId} prompt={prompt} typedAnswer={pendingAnswer?.promptId === prompt.id ? pendingAnswer.answer : null} onTypedAnswerDone={onPendingAnswerDone} onPromptChanged={() => setPromptPollKey((key) => key + 1)} onAnswered={() => {
         setPrompt(null);
         if (prompt.steps) setPromptPollKey((key) => key + 1);
