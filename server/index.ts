@@ -16,6 +16,8 @@ import { paneChangeDiff, paneChanges } from "./changes.ts";
 import { paneFiles } from "./files.ts";
 import { paneOpencodeModels, switchPaneOpencodeModel } from "./opencode-model.ts";
 import { PaneSwitchError } from "./pane-switch.ts";
+import { hasPermissionModes, panePermissionModes, switchPanePermissionMode } from "./permission-mode.ts";
+import { isPermissionMode } from "../shared/permission-mode.ts";
 import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
 import { serveStatic } from "./static.ts";
 import { startStatusCollector } from "./collector.ts";
@@ -1219,6 +1221,41 @@ export function createServer(
         try {
           if ((await paneContext(payload.pane_id)).agent !== "opencode") return badRequest("not_opencode", "the pane is not running opencode");
           await switchPaneOpencodeModel(payload.pane_id, payload.model);
+          return jsonResponse({ ok: true });
+        } catch (error) {
+          if (error instanceof PaneSwitchError) return jsonResponse({ error: { code: error.code, message: error.message } }, 409);
+          return errorResponse(error);
+        }
+      }
+
+      if (pathname === "/api/pane/permission-modes") {
+        if (request.method !== "GET") return badRequest("method_not_allowed", "use GET");
+        const paneId = url.searchParams.get("pane_id");
+        if (!paneId) return badRequest("missing_pane_id", "pane_id query parameter is required");
+        try {
+          const { agent } = await paneContext(paneId);
+          if (!hasPermissionModes(agent)) return badRequest("no_permission_modes", "the pane's agent has no permission modes");
+          return jsonResponse(await panePermissionModes(paneId, agent));
+        } catch (error) {
+          return errorResponse(error);
+        }
+      }
+
+      if (pathname === "/api/pane/permission-mode") {
+        if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
+        let payload: { pane_id?: unknown; mode?: unknown };
+        try {
+          payload = (await request.json()) as typeof payload;
+        } catch {
+          return badRequest("invalid_json", "request body must be JSON");
+        }
+        if (!isJsonObject(payload)) return badRequest("invalid_body", "request body must be a JSON object");
+        if (typeof payload.pane_id !== "string" || payload.pane_id.length === 0) return badRequest("missing_pane_id", "pane_id is required");
+        if (!isPermissionMode(payload.mode)) return badRequest("invalid_mode", "mode must be a known permission mode");
+        try {
+          const { agent } = await paneContext(payload.pane_id);
+          if (!hasPermissionModes(agent)) return badRequest("no_permission_modes", "the pane's agent has no permission modes");
+          await switchPanePermissionMode(payload.pane_id, agent, payload.mode);
           return jsonResponse({ ok: true });
         } catch (error) {
           if (error instanceof PaneSwitchError) return jsonResponse({ error: { code: error.code, message: error.message } }, 409);
