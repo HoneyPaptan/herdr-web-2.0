@@ -167,7 +167,7 @@ export function UsageMeters() {
         {folded > 0 && <span className="usage-more shrink-0 text-muted-foreground/60">+{folded}</span>}
       </button>
       {open && (
-        <div className="usage-popover absolute right-3 bottom-[calc(100%-0.25rem)] left-3 z-50 flex max-h-[calc(var(--app-height,100dvh)-160px)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover px-3 pt-2 pb-3 text-popover-foreground shadow-lg backdrop-blur-xl" role="dialog" aria-label={t("Subscription usage")}>
+        <div className="usage-popover absolute right-3 left-3 max-md:bottom-[calc(100%-0.25rem)] md:top-[calc(100%-0.25rem)] z-50 flex max-h-[calc(var(--app-height,100dvh)-160px)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover px-3 pt-2 pb-3 text-popover-foreground shadow-lg backdrop-blur-xl" role="dialog" aria-label={t("Subscription usage")}>
           <DetailHead loading={loading} onRefresh={refresh} />
           {shown.map((usage) => <Provider key={usage.key} usage={usage} now={now} count={count} />)}
         </div>

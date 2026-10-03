@@ -82,7 +82,7 @@ export function MachineSidebar(props: Props) {
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const target = props.machines.find((machine) => machine.id === props.selectedMachineId);
   return <div className="sidebar-shell">
-    <div className="sidebar-strip flex h-10 shrink-0 items-center gap-0.5 px-2">
+    <div className="sidebar-strip relative flex h-10 shrink-0 items-center gap-0.5 px-2">
       <div className="flex min-w-0 flex-1 items-center"><UsageMeters /></div>
       <Button variant="ghost" size="icon-sm" className={cn("sidebar-settings", SIDEBAR_ICON)} aria-label={t("Settings")} onClick={props.actions.openSettings}><Settings className="size-4" /></Button>
       <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
