@@ -260,6 +260,11 @@ export const JA: Record<string, string> = {
 
   // ---- files ----
   "Files": "ファイル",
+  "navigate": "移動",
+  "select": "選択",
+  "No matching files": "一致するファイルはありません",
+  "No matching commands": "一致するコマンドはありません",
+  "Loading files": "ファイルを読み込み中",
   "Close files": "ファイルを閉じる",
   "Opening…": "開いています…",
   "Showing the first {shown} of {total}.": "{total} 件中、最初の {shown} 件を表示しています。",

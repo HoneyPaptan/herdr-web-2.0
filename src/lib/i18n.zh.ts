@@ -262,6 +262,11 @@ export const ZH: Record<string, string> = {
 
   // ---- files ----
   "Files": "文件",
+  "navigate": "导航",
+  "select": "选择",
+  "No matching files": "没有匹配的文件",
+  "No matching commands": "没有匹配的命令",
+  "Loading files": "正在加载文件",
   "Close files": "关闭文件",
   "Opening…": "正在打开…",
   "Showing the first {shown} of {total}.": "显示 {total} 项中的前 {shown} 项。",

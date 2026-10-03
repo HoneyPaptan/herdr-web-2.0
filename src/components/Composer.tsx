@@ -10,9 +10,10 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import { ArrowUp, Clock, FileText, Plus, Square, X } from "lucide-react";
+import { ArrowUp, Clock, CornerDownLeft, FileText, Plus, Square, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 
 import "./Composer.css";
@@ -148,6 +149,30 @@ function ContextRing({ context }: { context: NonNullable<ConversationMetadata["c
   );
 }
 
+function PickerHint() {
+  const t = useT();
+  return (
+    <div aria-hidden="true" className="mb-1.5 flex items-center gap-3 self-start rounded-lg bg-background px-1.5 py-1 text-ui text-muted-foreground/50 pointer-coarse:hidden">
+      <KbdGroup><Kbd>↑</Kbd><Kbd>↓</Kbd><span className="ml-0.5">{t("navigate")}</span></KbdGroup>
+      <KbdGroup><Kbd><CornerDownLeft strokeWidth={2} /></Kbd><span className="ml-0.5">{t("select")}</span></KbdGroup>
+    </div>
+  );
+}
+
+function PickerLoading({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label} className="flex flex-col p-1">
+      {[0, 1, 2].map((row) => (
+        <div key={row} aria-hidden="true" className="flex h-8 items-center gap-2 px-2">
+          <span className="size-3.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/20" />
+          <span className="h-3 w-14 shrink-0 animate-pulse rounded bg-muted-foreground/20" />
+          <span className="h-3 w-32 animate-pulse rounded bg-muted-foreground/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Composer({
   connected,
   paneId,
@@ -186,6 +211,7 @@ export function Composer({
   const caretRef = useRef(caret);
   const [commands, setCommands] = useState<SlashCommand[]>([]);
   const [files, setFiles] = useState<string[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
   const [slashUsage, setSlashUsage] = useState<Record<string, number>>(readSlashUsage);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [menuDismissed, setMenuDismissed] = useState(false);
@@ -225,8 +251,10 @@ export function Composer({
     const request = ++fileRequest.current;
     if (trigger?.kind !== "file") {
       setFiles([]);
+      setFilesLoading(false);
       return;
     }
+    setFilesLoading(true);
     const timer = window.setTimeout(() => {
       void fetchPaneFiles(paneId, trigger.query, 20)
         .then((next) => {
@@ -234,6 +262,9 @@ export function Composer({
         })
         .catch(() => {
           if (request === fileRequest.current) setFiles([]);
+        })
+        .finally(() => {
+          if (request === fileRequest.current) setFilesLoading(false);
         });
     }, 150);
     return () => window.clearTimeout(timer);
@@ -270,7 +301,9 @@ export function Composer({
     [filteredCommands],
   );
   const choices: readonly (SlashCommand | string)[] = trigger?.kind === "slash" ? orderedCommands : files;
-  const menuOpen = !menuDismissed && trigger !== null && choices.length > 0;
+  const pickerShown = !menuDismissed && trigger !== null;
+  const menuOpen = pickerShown && choices.length > 0;
+  const pickerLoading = pickerShown && trigger.kind === "file" && filesLoading && files.length === 0;
 
   useEffect(() => {
     if (selectedIndex >= choices.length) setSelectedIndex(Math.max(0, choices.length - 1));
@@ -545,55 +578,64 @@ export function Composer({
       )}
 
       <div className={cn(COMPOSER_COLUMN, "relative")}>
-        {menuOpen && trigger && (
-          <div className="absolute bottom-full left-0 z-50 mb-1.5 w-full overflow-hidden rounded-xl border border-hairline-strong bg-picker text-popover-foreground shadow-md backdrop-blur-lg">
-            <div id={menuId} className="flex max-h-[14.5rem] flex-col overflow-x-hidden overflow-y-auto overscroll-contain p-1 [scrollbar-width:none]" role="listbox" aria-label={t(trigger.kind === "slash" ? "Slash commands" : "Files")}>
-              {trigger.kind === "slash" ? (
-                COMMAND_SOURCES.map((source) => {
-                  const group = filteredCommands.filter((command) => command.source === source);
-                  if (group.length === 0) return null;
-                  return (
-                    <div className={PICKER_GROUP} key={source}>
-                      <div className={PICKER_LABEL}>{t(SOURCE_LABEL[source])}</div>
-                      {group.map((command) => {
-                        const index = orderedCommands.indexOf(command);
-                        return (
-                          <button
-                            id={`${menuId}-${index}`}
-                            key={`${command.source}:${command.name}`}
-                            type="button"
-                            className={PICKER_ROW}
-                            role="option"
-                            aria-selected={index === selectedIndex}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => selectCompletion(command, trigger)}
-                          >
-                            <span className="shrink-0 font-medium">{command.trigger ?? "/"}{command.name}</span>
-                            <span className="min-w-0 truncate text-muted-foreground">{command.description}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })
+        {pickerShown && trigger && (
+          <div className="absolute bottom-full left-0 z-50 mb-1.5 flex w-full flex-col">
+            {menuOpen && <PickerHint />}
+            <div className="overflow-hidden rounded-xl border border-hairline-strong bg-picker text-popover-foreground shadow-md backdrop-blur-lg">
+              {menuOpen ? (
+              <div id={menuId} className="flex max-h-[14.5rem] flex-col overflow-x-hidden overflow-y-auto overscroll-contain p-1 [scrollbar-width:none]" role="listbox" aria-label={t(trigger.kind === "slash" ? "Slash commands" : "Files")}>
+                {trigger.kind === "slash" ? (
+                  COMMAND_SOURCES.map((source) => {
+                    const group = filteredCommands.filter((command) => command.source === source);
+                    if (group.length === 0) return null;
+                    return (
+                      <div className={PICKER_GROUP} key={source}>
+                        <div className={PICKER_LABEL}>{t(SOURCE_LABEL[source])}</div>
+                        {group.map((command) => {
+                          const index = orderedCommands.indexOf(command);
+                          return (
+                            <button
+                              id={`${menuId}-${index}`}
+                              key={`${command.source}:${command.name}`}
+                              type="button"
+                              className={PICKER_ROW}
+                              role="option"
+                              aria-selected={index === selectedIndex}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => selectCompletion(command, trigger)}
+                            >
+                              <span className="shrink-0 font-medium">{command.trigger ?? "/"}{command.name}</span>
+                              <span className="min-w-0 truncate text-muted-foreground">{command.description}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className={PICKER_GROUP}>
+                    <div className={PICKER_LABEL}>{t("Files")}</div>
+                    {files.map((file, index) => (
+                      <button
+                        id={`${menuId}-${index}`}
+                        key={file}
+                        type="button"
+                        className={PICKER_ROW}
+                        role="option"
+                        aria-selected={index === selectedIndex}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectCompletion(file, trigger)}
+                      >
+                        <span className="min-w-0 truncate">{file}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              ) : pickerLoading ? (
+                <PickerLoading label={t("Loading files")} />
               ) : (
-                <div className={PICKER_GROUP}>
-                  <div className={PICKER_LABEL}>{t("Files")}</div>
-                  {files.map((file, index) => (
-                    <button
-                      id={`${menuId}-${index}`}
-                      key={file}
-                      type="button"
-                      className={PICKER_ROW}
-                      role="option"
-                      aria-selected={index === selectedIndex}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => selectCompletion(file, trigger)}
-                    >
-                      <span className="min-w-0 truncate">{file}</span>
-                    </button>
-                  ))}
-                </div>
+                <div role="status" className="flex h-8 items-center px-3 text-ui text-muted-foreground">{t(trigger.kind === "slash" ? "No matching commands" : "No matching files")}</div>
               )}
             </div>
           </div>

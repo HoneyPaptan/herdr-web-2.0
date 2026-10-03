@@ -258,6 +258,11 @@ export const KO: Record<string, string> = {
 
   // ---- files ----
   "Files": "파일",
+  "navigate": "이동",
+  "select": "선택",
+  "No matching files": "일치하는 파일이 없습니다",
+  "No matching commands": "일치하는 명령이 없습니다",
+  "Loading files": "파일 불러오는 중",
   "Close files": "파일 닫기",
   "Opening…": "여는 중…",
   "Showing the first {shown} of {total}.": "전체 {total} 중 처음 {shown}만 보입니다.",
