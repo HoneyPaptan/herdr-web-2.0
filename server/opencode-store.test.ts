@@ -4,8 +4,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ConversationUnavailable, opencodeConversation } from "./conversation.ts";
-import { isOpencodeSession, opencodeDbPath, readOpencodeConversation, readOpencodeToolOutput } from "./opencode-store.ts";
+import { ConversationUnavailable, HistoryChanged, opencodeConversation } from "./conversation.ts";
+import { isOpencodeSession, opencodeDbPath, readOpencodeConversation, readOpencodeImage, readOpencodeToolOutput, UnknownOpencodeCursor } from "./opencode-store.ts";
 import { TOOL_OUTPUT_CHARS } from "./tool-output.ts";
 
 const SESSION = "ses_f01cf11b8ffeQ3UG4W9YjrwAma";
@@ -26,7 +26,7 @@ function store(messages: Message[], session = SESSION): string {
   for (const message of messages) {
     db.run("insert into message values (?, ?, ?, ?, ?)", [message.id, session, message.at, message.at, JSON.stringify(message.data)]);
     message.parts.forEach((part, index) => {
-      db.run("insert into part values (?, ?, ?, ?, ?, ?)", [`prt_${message.id}_${index}`, message.id, session, message.at, message.at, JSON.stringify(part)]);
+      db.run("insert into part values (?, ?, ?, ?, ?, ?)", [`prt_${message.id.slice(4)}p${index}`, message.id, session, message.at, message.at, JSON.stringify(part)]);
     });
   }
   db.close();
@@ -77,10 +77,10 @@ describe("readOpencodeConversation", () => {
     const path = store([assistant("msg_1", 1_000, {}, { type: "tool", tool: "bash", state: { status: "completed", input: { command: "cat big" }, output } })]);
     const read = readOpencodeConversation(path, SESSION)!;
     const tool = read.turns[0]!.parts[0] as { output_ref?: string; output_size?: number };
-    expect(tool.output_ref).toBe("prt_msg_1_0");
+    expect(tool.output_ref).toBe("prt_1p0");
     expect(tool.output_size).toBe(output.length);
-    expect(readOpencodeToolOutput(path, SESSION, "prt_msg_1_0")).toBe(output);
-    expect(readOpencodeToolOutput(path, "ses_otherSession00", "prt_msg_1_0")).toBeNull();
+    expect(readOpencodeToolOutput(path, SESSION, "prt_1p0")).toBe(output);
+    expect(readOpencodeToolOutput(path, "ses_otherSession00", "prt_1p0")).toBeNull();
   });
 
   it("changes its signature when a running step writes more", () => {
@@ -94,15 +94,82 @@ describe("readOpencodeConversation", () => {
   });
 });
 
+const exchange = (index: number): Message[] => {
+  const id = String(index).padStart(3, "0");
+  return [
+    user(`msg_${id}aaaaaaaa`, index * 10, { type: "text", text: `ask ${index}` }),
+    assistant(`msg_${id}bbbbbbbb`, index * 10 + 1, {}, { type: "text", text: `reply ${index}` }),
+  ];
+};
+const exchanges = (from: number, count: number): Message[] => Array.from({ length: count }, (_, index) => exchange(from + index)).flat();
+const asks = (turns: { role: string; parts: { kind: string; text?: string }[] }[]): string[] => turns.filter((turn) => turn.role === "user").map((turn) => turn.parts[0]!.text!);
+
+describe("opencode pages", () => {
+  it("serves the newest twenty turns and the ones before them, meeting exactly", () => {
+    const path = store(exchanges(1, 25));
+    const newest = readOpencodeConversation(path, SESSION)!;
+    expect(asks(newest.turns)).toEqual(Array.from({ length: 20 }, (_, index) => `ask ${index + 6}`));
+    expect(newest.cursor).toBe("60.msg_006aaaaaaaa");
+    const older = readOpencodeConversation(path, SESSION, { before: newest.cursor! })!;
+    expect(asks(older.turns)).toEqual(["ask 1", "ask 2", "ask 3", "ask 4", "ask 5"]);
+    expect(older.turns.at(-1)!.parts).toEqual([{ kind: "text", text: "reply 5" }]);
+    expect(older.cursor).toBeNull();
+  });
+
+  it("keeps a held start while it is inside the newest page, else serves the newest page", () => {
+    const short = store(exchanges(1, 25));
+    expect(asks(readOpencodeConversation(short, SESSION, { from: "100.msg_010aaaaaaaa" })!.turns)[0]).toBe("ask 10");
+    const grown = store(exchanges(1, 40));
+    const page = readOpencodeConversation(grown, SESSION, { from: "60.msg_006aaaaaaaa" })!;
+    expect(page.cursor).toBe("210.msg_021aaaaaaaa");
+    const between = readOpencodeConversation(grown, SESSION, { before: page.cursor!, since: "60.msg_006aaaaaaaa" })!;
+    expect(asks(between.turns)).toEqual(Array.from({ length: 15 }, (_, index) => `ask ${index + 6}`));
+    expect(between.cursor).toBe("60.msg_006aaaaaaaa");
+  });
+
+  it("refuses a cursor the session does not hold", () => {
+    const path = store(exchanges(1, 3));
+    expect(() => readOpencodeConversation(path, SESSION, { before: "999.msg_999aaaaaaaa" })).toThrow(UnknownOpencodeCursor);
+    expect(() => readOpencodeConversation(path, SESSION, { before: "20.msg_002bbbbbbbb" })).toThrow(UnknownOpencodeCursor);
+    expect(() => opencodeConversation(SESSION, { from: "garbage" }, path)).toThrow(HistoryChanged);
+  });
+
+  it("never merges a reply into the one before a compaction", () => {
+    const path = store([
+      ...exchange(1),
+      user("msg_002aaaaaaaa", 20, { type: "compaction", auto: true }),
+      assistant("msg_002bbbbbbbb", 21, { summary: true }, { type: "text", text: "Summary." }),
+    ]);
+    expect(readOpencodeConversation(path, SESSION)!.turns.map((turn) => turn.parts.map((part) => part.kind))).toEqual([["text"], ["text"], ["compact"]]);
+  });
+});
+
+describe("opencode images", () => {
+  it("shows a pasted image by its part id and serves its bytes", () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const path = store([user("msg_imageone1", 1_000, { type: "text", text: "look" }, { type: "file", mime: "image/png", filename: "clipboard", url: `data:image/png;base64,${png.toString("base64")}` })]);
+    expect(readOpencodeConversation(path, SESSION)!.turns[0]!.parts).toEqual([{ kind: "text", text: "look" }, { kind: "image", media_type: "image/png", ref: "prt_imageone1p1" }]);
+    const image = readOpencodeImage(path, SESSION, "prt_imageone1p1")!;
+    expect(image.mediaType).toBe("image/png");
+    expect([...image.bytes]).toEqual([...png]);
+    expect(readOpencodeImage(path, SESSION, "prt_imageone1p0")).toBeNull();
+  });
+
+  it("leaves an attached text file out of the bubble", () => {
+    const path = store([user("msg_1", 1_000, { type: "text", text: "read @a.css" }, { type: "file", mime: "text/plain", filename: "a.css", url: "file:///tmp/a.css" })]);
+    expect(readOpencodeConversation(path, SESSION)!.turns[0]!.parts).toEqual([{ kind: "text", text: "read @a.css" }]);
+  });
+});
+
 describe("opencodeConversation", () => {
   it("reports a session that has not written anything as not started", () => {
-    const run = () => opencodeConversation(SESSION, store([]));
+    const run = () => opencodeConversation(SESSION, {}, store([]));
     expect(run).toThrow(ConversationUnavailable);
     expect(run).toThrow("transcript_missing");
   });
 
   it("names the session as the history and starts at the beginning", () => {
-    const conversation = opencodeConversation(SESSION, store([user("msg_1", 1_000, { type: "text", text: "hi" })]));
+    const conversation = opencodeConversation(SESSION, {}, store([user("msg_1", 1_000, { type: "text", text: "hi" })]));
     expect(conversation.source).toBe("opencode-transcript");
     expect(conversation.history_id).toBe(SESSION);
     expect(conversation.cursor).toBeNull();

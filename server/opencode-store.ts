@@ -3,18 +3,28 @@ import { join } from "node:path";
 
 import type { ConversationMetadata, ConversationPart, ConversationTurn } from "../shared/protocol.ts";
 import { trimOutput } from "./tool-output.ts";
-import { MAX_TURNS, toolSummary } from "./transcript-records.ts";
+import { toolSummary } from "./transcript-records.ts";
 
-const MESSAGE_WINDOW = 600;
+const PAGE_TURNS = 20;
+const CURSOR = /^(\d{1,16})\.(msg_[A-Za-z0-9]{8,64})$/;
+const DATA_URL = /^data:([^;,]+);base64,(.*)$/s;
+const USER_MESSAGE = "json_extract(data, '$.role') = 'user'";
 const SESSION_ID = /^ses_[A-Za-z0-9]{8,64}$/;
+export const OPENCODE_IMAGE_REF = /^prt_[A-Za-z0-9]{8,64}$/;
 const ATTACHED_RESOURCE = /^\[[a-z][a-z0-9+.-]*:\/\/[^\]\s]+\]\n/;
 
 type Row = Record<string, unknown>;
 type ToolPart = Extract<ConversationPart, { kind: "tool" }>;
 type MessageRow = { id: string; data: string };
 type PartRow = { id: string; message_id: string; data: string };
+type Position = { at: number; id: string };
 
-export type OpencodeConversation = { turns: ConversationTurn[]; metadata: ConversationMetadata; signature: string };
+export type OpencodePage = { before?: string; since?: string; from?: string };
+export type OpencodeConversation = { turns: ConversationTurn[]; metadata: ConversationMetadata; cursor: string | null; signature: string };
+
+export class UnknownOpencodeCursor extends Error {
+  constructor() { super("history_changed"); }
+}
 
 export function isOpencodeSession(value: unknown): value is string {
   return typeof value === "string" && SESSION_ID.test(value);
@@ -58,9 +68,15 @@ function toolPart(id: string, part: Row): ToolPart {
   return tool;
 }
 
+function imagePart(id: string, part: Row): ConversationPart[] {
+  const mime = text(part["mime"]);
+  return mime.startsWith("image/") && text(part["url"]).startsWith("data:") ? [{ kind: "image", media_type: mime, ref: id }] : [];
+}
+
 function userParts(parts: PartRow[]): ConversationPart[] {
-  return parts.flatMap(({ data }) => {
+  return parts.flatMap(({ id, data }) => {
     const part = parseRow(data);
+    if (part["type"] === "file") return imagePart(id, part);
     if (part["type"] !== "text" || part["synthetic"] === true || part["ignored"] === true) return [];
     const body = text(part["text"]).trim();
     return body && !ATTACHED_RESOURCE.test(body) ? [{ kind: "text" as const, text: body }] : [];
@@ -92,44 +108,117 @@ function metadataOf(message: Row, before: ConversationMetadata): ConversationMet
   return metadata;
 }
 
-export function buildOpencodeTurns(messages: MessageRow[], parts: PartRow[], maxTurns = MAX_TURNS): { turns: ConversationTurn[]; metadata: ConversationMetadata } {
+export function buildOpencodeTurns(messages: MessageRow[], parts: PartRow[]): { turns: ConversationTurn[]; metadata: ConversationMetadata } {
   const byMessage = new Map<string, PartRow[]>();
   for (const part of parts) byMessage.set(part.message_id, [...byMessage.get(part.message_id) ?? [], part]);
   const turns: ConversationTurn[] = [];
   let metadata: ConversationMetadata = { model: null, reasoning_effort: null };
+  let reply: ConversationTurn | null = null;
   for (const { id, data } of messages) {
     const message = parseRow(data);
     const time = record(message["time"]);
     const own = byMessage.get(id) ?? [];
     if (message["role"] === "user") {
+      reply = null;
       const shown = userParts(own);
       if (shown.length > 0) turns.push({ role: "user", ts: isoTime(time["created"]), parts: shown });
       continue;
     }
     if (message["role"] !== "assistant") continue;
     metadata = metadataOf(message, metadata);
-    let turn = turns.at(-1);
-    if (turn?.role !== "assistant") {
-      turn = { role: "assistant", ts: isoTime(time["created"]), parts: [] };
-      turns.push(turn);
+    if (reply === null) {
+      reply = { role: "assistant", ts: isoTime(time["created"]), parts: [] };
+      turns.push(reply);
     }
-    turn.parts.push(...assistantParts(own, message["summary"] === true));
+    reply.parts.push(...assistantParts(own, message["summary"] === true));
     const end = isoTime(time["completed"]) ?? isoTime(time["created"]);
-    if (end) turn.end_ts = end;
+    if (end) reply.end_ts = end;
   }
-  return { turns: turns.filter((turn) => turn.parts.length > 0).slice(-maxTurns), metadata };
+  return { turns: turns.filter((turn) => turn.parts.length > 0), metadata };
 }
 
-export function readOpencodeConversation(path: string, sessionId: string): OpencodeConversation | null {
+function formatCursor(position: Position | null): string | null {
+  return position === null ? null : `${position.at}.${position.id}`;
+}
+
+function isBefore(left: Position, right: Position): boolean {
+  return left.at < right.at || (left.at === right.at && left.id < right.id);
+}
+
+function turnStart(db: Database, sessionId: string, cursor: string): Position {
+  const match = CURSOR.exec(cursor);
+  const row = match && db.query<Position, [string, string, number]>(`select time_created as at, id from message where session_id = ? and id = ? and time_created = ? and ${USER_MESSAGE}`).get(sessionId, match[2]!, Number(match[1]));
+  if (!row) throw new UnknownOpencodeCursor();
+  return row;
+}
+
+function rangeClause(from: Position | null, to: Position | null): { sql: string; values: (string | number)[] } {
+  const clauses: string[] = [];
+  const values: (string | number)[] = [];
+  if (from !== null) { clauses.push("(time_created, id) >= (?, ?)"); values.push(from.at, from.id); }
+  if (to !== null) { clauses.push("(time_created, id) < (?, ?)"); values.push(to.at, to.id); }
+  return { sql: clauses.map((clause) => ` and ${clause}`).join(""), values };
+}
+
+function pageStart(db: Database, sessionId: string, floor: Position | null, to: Position | null): Position | null {
+  const range = rangeClause(floor, to);
+  const starts = db.query<Position, (string | number)[]>(`select time_created as at, id from message where session_id = ? and ${USER_MESSAGE}${range.sql} order by time_created desc, id desc limit ?`).all(sessionId, ...range.values, PAGE_TURNS);
+  return starts.length === PAGE_TURNS ? starts.at(-1)! : floor;
+}
+
+function atBeginning(db: Database, sessionId: string, start: Position | null): boolean {
+  if (start === null) return true;
+  const range = rangeClause(null, start);
+  return db.query(`select 1 from message where session_id = ?${range.sql} limit 1`).get(sessionId, ...range.values) === null;
+}
+
+function pageMessages(db: Database, sessionId: string, from: Position | null, to: Position | null): MessageRow[] {
+  const range = rangeClause(from, to);
+  return db.query<MessageRow, (string | number)[]>(`select id, data from message where session_id = ?${range.sql} order by time_created, id`).all(sessionId, ...range.values);
+}
+
+function pageParts(db: Database, messages: MessageRow[]): PartRow[] {
+  if (messages.length === 0) return [];
+  const ids = messages.map((message) => message.id);
+  return db.query<PartRow, string[]>(`select id, message_id, data from part where message_id in (${ids.map(() => "?").join(",")}) order by id`).all(...ids);
+}
+
+function sessionSignature(db: Database, sessionId: string): string | null {
+  const messages = db.query<{ count: number; updated: number | null }, [string]>("select count(*) as count, max(time_updated) as updated from message where session_id = ?").get(sessionId);
+  if (!messages || messages.count === 0) return null;
+  const parts = db.query<{ count: number; updated: number | null }, [string]>("select count(*) as count, max(time_updated) as updated from part where session_id = ?").get(sessionId);
+  return `${messages.count}:${messages.updated ?? 0}:${parts?.count ?? 0}:${parts?.updated ?? 0}`;
+}
+
+function pageBounds(db: Database, sessionId: string, page: OpencodePage): { from: Position | null; to: Position | null } {
+  if (page.before !== undefined) {
+    const to = turnStart(db, sessionId, page.before);
+    const floor = page.since === undefined ? null : turnStart(db, sessionId, page.since);
+    if (floor !== null && isBefore(to, floor)) throw new UnknownOpencodeCursor();
+    return { from: pageStart(db, sessionId, floor, to), to };
+  }
+  const held = page.from === undefined ? null : turnStart(db, sessionId, page.from);
+  const newest = pageStart(db, sessionId, null, null);
+  return { from: held !== null && (newest === null || !isBefore(held, newest)) ? held : newest, to: null };
+}
+
+export function readOpencodeConversation(path: string, sessionId: string, page: OpencodePage = {}): OpencodeConversation | null {
   return withDb(path, (db) => {
-    const newest = db.query<MessageRow, [string, number]>("select id, data from message where session_id = ? order by time_created desc, id desc limit ?").all(sessionId, MESSAGE_WINDOW);
-    if (newest.length === 0) return null;
-    const messages = newest.reverse();
-    const ids = messages.map((message) => message.id);
-    const parts = db.query<PartRow, string[]>(`select id, message_id, data from part where message_id in (${ids.map(() => "?").join(",")}) order by id`).all(...ids);
-    const stamp = db.query<{ updated: number | null; count: number }, [string]>("select max(time_updated) as updated, count(*) as count from part where session_id = ?").get(sessionId);
-    const signature = `${messages.length}:${messages.at(-1)!.id}:${stamp?.count ?? 0}:${stamp?.updated ?? 0}`;
-    return { ...buildOpencodeTurns(messages, parts), signature };
+    const signature = sessionSignature(db, sessionId);
+    if (signature === null) return null;
+    const { from, to } = pageBounds(db, sessionId, page);
+    const messages = pageMessages(db, sessionId, from, to);
+    const cursor = atBeginning(db, sessionId, from) ? null : formatCursor(from);
+    return { ...buildOpencodeTurns(messages, pageParts(db, messages)), cursor, signature };
+  });
+}
+
+export function readOpencodeImage(path: string, sessionId: string, ref: string): { mediaType: string; bytes: Uint8Array<ArrayBuffer> } | null {
+  return withDb(path, (db) => {
+    const row = db.query<{ data: string }, [string, string]>("select data from part where id = ? and session_id = ?").get(ref, sessionId);
+    const url = row ? DATA_URL.exec(text(parseRow(row.data)["url"])) : null;
+    if (!url || !url[1]!.startsWith("image/")) return null;
+    return { mediaType: url[1]!, bytes: Uint8Array.from(Buffer.from(url[2]!, "base64")) };
   });
 }
 

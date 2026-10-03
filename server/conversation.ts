@@ -38,7 +38,7 @@ import { CODEX_IMAGE_REF, codexTranscriptImage } from "./codex-images.ts";
 import { claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
 import { forgetGjcState, gjcTranscriptForPane, storeRelative } from "./gjc-runtime.ts";
 import { isOmoProcess, omoTranscriptForPane } from "./omo.ts";
-import { isOpencodeSession, opencodeDbPath, readOpencodeConversation, readOpencodeToolOutput } from "./opencode-store.ts";
+import { isOpencodeSession, OPENCODE_IMAGE_REF, opencodeDbPath, readOpencodeConversation, readOpencodeImage, readOpencodeToolOutput, UnknownOpencodeCursor } from "./opencode-store.ts";
 import { piTranscriptPath } from "./pi.ts";
 import { piAbandonedTurns, piBranchSegments } from "./pi-tree.ts";
 import { trimOutput } from "./tool-output.ts";
@@ -802,7 +802,7 @@ export async function paneConversation(paneId: string, codexHome?: string, page:
   if (pane === undefined) throw new ConversationUnavailable("pane_not_found");
   if (typeof pane.cwd !== "string" || pane.cwd.length === 0) throw new ConversationUnavailable("no_recognized_transcript");
 
-  if (pane.agent === "opencode") return opencodeConversation(await opencodeSessionOf(paneId));
+  if (pane.agent === "opencode") return opencodeConversation(await opencodeSessionOf(paneId), page);
   const { source, path } = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes);
   return transcriptPage(source, path, page, codexHome);
 }
@@ -814,11 +814,15 @@ async function opencodeSessionOf(paneId: string): Promise<string> {
   return session;
 }
 
-export function opencodeConversation(sessionId: string, dbPath = opencodeDbPath()): RecognizedConversation {
+export function opencodeConversation(sessionId: string, page: ConversationPage = {}, dbPath = opencodeDbPath()): RecognizedConversation {
   let read: ReturnType<typeof readOpencodeConversation>;
-  try { read = readOpencodeConversation(dbPath, sessionId); } catch { throw new ConversationUnavailable("transcript_missing"); }
+  try { read = readOpencodeConversation(dbPath, sessionId, page); } catch (error) {
+    if (error instanceof UnknownOpencodeCursor) throw new HistoryChanged();
+    throw new ConversationUnavailable("transcript_missing");
+  }
   if (read === null) throw new ConversationUnavailable("transcript_missing");
-  return { source: "opencode-transcript", turns: read.turns, metadata: read.metadata, cursor: null, history_id: sessionId, version: answerVersion(`${dbPath}\0${sessionId}`, read.signature) };
+  const key = `${dbPath}\0${sessionId}\0${page.before ?? ""}:${page.since ?? ""}:${page.from ?? ""}`;
+  return { source: "opencode-transcript", turns: read.turns, metadata: read.metadata, cursor: read.cursor, history_id: sessionId, version: answerVersion(key, read.signature) };
 }
 
 /** One page of a resolved transcript (paneConversation's `page`). */
@@ -911,10 +915,11 @@ export function transcriptPage(source: TranscriptSource, path: string, page: Con
  * image. Codex uses a hash of the native attachment and searches only the bound history.
  */
 export async function conversationImage(paneId: string, ref: string, codexHome?: string): Promise<{ mediaType: string; bytes: Uint8Array<ArrayBuffer> } | null> {
-  if (!IMAGE_REF.test(ref) && !CODEX_IMAGE_REF.test(ref) && !PI_IMAGE_REF.test(ref)) return null;
+  if (!IMAGE_REF.test(ref) && !CODEX_IMAGE_REF.test(ref) && !PI_IMAGE_REF.test(ref) && !OPENCODE_IMAGE_REF.test(ref)) return null;
   const snapshot = await sessionSnapshot();
   const pane = snapshot.panes.find((candidate) => candidate.pane_id === paneId);
   if (pane === undefined || typeof pane.cwd !== "string" || pane.cwd.length === 0) return null;
+  if (pane.agent === "opencode") return opencodeImage(paneId, ref);
   let resolved: { source: TranscriptSource; path: string };
   try { resolved = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes); }
   catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
@@ -963,6 +968,13 @@ export async function toolOutput(paneId: string, ref: string, codexHome?: string
   try { resolved = await resolveTranscript(pane, pane.cwd, codexHome, snapshot.panes); }
   catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
   return transcriptToolOutput(resolved.source, resolved.path, ref, codexHome);
+}
+
+async function opencodeImage(paneId: string, ref: string): Promise<{ mediaType: string; bytes: Uint8Array<ArrayBuffer> } | null> {
+  if (!OPENCODE_IMAGE_REF.test(ref)) return null;
+  let session: string;
+  try { session = await opencodeSessionOf(paneId); } catch (error) { if (error instanceof ConversationUnavailable) return null; throw error; }
+  try { return readOpencodeImage(opencodeDbPath(), session, ref); } catch { return null; }
 }
 
 async function opencodeToolOutput(paneId: string, ref: string): Promise<string | null> {
