@@ -1,6 +1,8 @@
 import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
+import { git } from "./git.ts";
+
 const CACHE_MS = 5_000;
 const MAX_ENTRIES = 5_000;
 const MAX_DEPTH = 6;
@@ -8,15 +10,9 @@ const SKIP: Record<string, true> = { node_modules: true, dist: true, target: tru
 const cache = new Map<string, { expires: number; files: string[] }>();
 
 async function gitFiles(cwd: string): Promise<string[] | null> {
-  const proc = Bun.spawn(["git", "-C", cwd, "ls-files", "-z", "-co", "--exclude-standard"], { stdout: "pipe", stderr: "ignore" });
-  const timer = setTimeout(() => proc.kill(), 3_000);
-  try {
-    const [output, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    if (exitCode !== 0) return null;
-    return [...new Set(output.split("\0").filter(Boolean))].slice(0, MAX_ENTRIES);
-  } finally {
-    clearTimeout(timer);
-  }
+  const { code, stdout } = await git(cwd, ["ls-files", "-z", "-co", "--exclude-standard"]);
+  if (code !== 0) return null;
+  return [...new Set(stdout.split("\0").filter(Boolean))].slice(0, MAX_ENTRIES);
 }
 
 function skipDirectory(name: string): boolean {
@@ -101,11 +97,6 @@ export async function paneFiles(cwd: string, query = "", limit = 20): Promise<st
 
 const walked = new Map<string, { expires: number; files: string[] }>();
 
-/**
- * The files under `cwd` whose path ends in `name` (a bare `demo.mp4`, or `screenshots/demo.mp4`),
- * for a path an agent wrote without its folders. Walks the folder itself, since the git
- * inventory leaves out ignored files (build output, recordings), within the same bounds.
- */
 export function filesNamed(cwd: string, name: string, limit = 10): string[] {
   const suffix = name.replace(/^\.\//, "");
   let hit = walked.get(cwd);
