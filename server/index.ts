@@ -14,6 +14,7 @@ import { remoteAccess, tailscaleIdentity } from "./tailscale.ts";
 import { paneCommands } from "./commands.ts";
 import { paneChangeDiff, paneChanges } from "./changes.ts";
 import { paneFiles } from "./files.ts";
+import { OpencodeSwitchError, paneOpencodeModels, switchPaneOpencodeModel } from "./opencode-model.ts";
 import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
 import { serveStatic } from "./static.ts";
 import { startStatusCollector } from "./collector.ts";
@@ -1187,6 +1188,39 @@ export function createServer(
           });
           return jsonResponse({ read });
         } catch (error) {
+          return errorResponse(error);
+        }
+      }
+
+      if (pathname === "/api/pane/opencode-models") {
+        if (request.method !== "GET") return badRequest("method_not_allowed", "use GET");
+        const paneId = url.searchParams.get("pane_id");
+        if (!paneId) return badRequest("missing_pane_id", "pane_id query parameter is required");
+        try {
+          if ((await paneContext(paneId)).agent !== "opencode") return badRequest("not_opencode", "the pane is not running opencode");
+          return jsonResponse(await paneOpencodeModels(paneId));
+        } catch (error) {
+          return errorResponse(error);
+        }
+      }
+
+      if (pathname === "/api/pane/opencode-model") {
+        if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
+        let payload: { pane_id?: unknown; model?: unknown };
+        try {
+          payload = (await request.json()) as typeof payload;
+        } catch {
+          return badRequest("invalid_json", "request body must be JSON");
+        }
+        if (!isJsonObject(payload)) return badRequest("invalid_body", "request body must be a JSON object");
+        if (typeof payload.pane_id !== "string" || payload.pane_id.length === 0) return badRequest("missing_pane_id", "pane_id is required");
+        if (typeof payload.model !== "string" || payload.model.length === 0) return badRequest("missing_model", "model is required");
+        try {
+          if ((await paneContext(payload.pane_id)).agent !== "opencode") return badRequest("not_opencode", "the pane is not running opencode");
+          await switchPaneOpencodeModel(payload.pane_id, payload.model);
+          return jsonResponse({ ok: true });
+        } catch (error) {
+          if (error instanceof OpencodeSwitchError) return jsonResponse({ error: { code: error.code, message: error.message } }, 409);
           return errorResponse(error);
         }
       }
