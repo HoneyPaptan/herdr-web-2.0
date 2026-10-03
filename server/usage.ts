@@ -28,6 +28,7 @@ export const FRESH_MS = 5 * 60_000;
 export const MIN_REFRESH_MS = 30_000;
 /** after a failure or an expired sign-in: soon enough to pick up the CLI's next refresh */
 export const RETRY_MS = 60_000;
+export const MAX_BACKOFF_MS = 60 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const COMMAND_TIMEOUT_MS = 5_000;
 const USER_AGENT = "herdr-web-ui";
@@ -783,7 +784,7 @@ export class UsageService {
   /** by provider and source */
   private readonly entries = new Map<string, Entry>();
   /** when each account may be asked again after a 429, wherever its sign-in is found next */
-  private readonly backoffs = new Map<string, number>();
+  private readonly backoffs = new Map<string, { until: number; strikes: number }>();
   private pending: Promise<UsageReport> | null = null;
   private pendingRefresh = false;
 
@@ -868,11 +869,11 @@ export class UsageService {
     if (signIn.expiresAt !== null && signIn.expiresAt <= now) return keep("expired", signIn.plan ?? null, RETRY_MS);
     // a 429 holds for the account, not the place: a sign-in moved or copied elsewhere waits too
     const backoff = found.account ? `${provider.id}:${found.account.id}` : `${provider.id}#${createHash("sha256").update(signIn.token).digest("hex")}`;
-    const until = this.backoffs.get(backoff);
-    if (until !== undefined && now < until) return keep("rate_limited", signIn.plan ?? null, until - now);
-    this.backoffs.delete(backoff);
+    const held = this.backoffs.get(backoff);
+    if (held !== undefined && now < held.until) return keep("rate_limited", signIn.plan ?? null, held.until - now);
     try {
       const reading = await provider.read(this.ctx, signIn);
+      this.backoffs.delete(backoff);
       if (reading === null) return settle(null, FRESH_MS);
       return settle({
         id: provider.id, ...identity(reading.account), plan: reading.plan ?? signIn.plan ?? null, windows: reading.windows, problem: null, checked_at: new Date(now).toISOString(),
@@ -880,8 +881,9 @@ export class UsageService {
     } catch (error) {
       if (error instanceof UsageHttpError && (error.status === 401 || error.status === 403)) return keep("expired", signIn.plan ?? null, RETRY_MS);
       if (error instanceof UsageHttpError && error.status === 429) {
-        const wait = Math.max(RETRY_MS, error.retryAfterMs ?? FRESH_MS);
-        this.backoffs.set(backoff, now + wait);
+        const strikes = (held?.strikes ?? 0) + 1;
+        const wait = Math.max(RETRY_MS, error.retryAfterMs ?? 0, Math.min(MAX_BACKOFF_MS, FRESH_MS * 2 ** (strikes - 1)));
+        this.backoffs.set(backoff, { until: now + wait, strikes });
         return keep("rate_limited", signIn.plan ?? null, wait);
       }
       console.warn(`usage: ${provider.id} could not be read: ${error instanceof Error ? error.message : String(error)}`);

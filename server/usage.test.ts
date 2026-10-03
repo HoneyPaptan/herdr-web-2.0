@@ -579,6 +579,30 @@ describe("accounts across reads (review fixes)", () => {
     expect(asked).toBe(1);
   });
 
+  it("doubles the wait after each 429 in a row, up to an hour, and starts over after an answer", async () => {
+    let limited = true;
+    const asks: number[] = [];
+    const service = new UsageService(context(), [fake(() => [{ source: "/home/me/.claude", token: "t", expiresAt: null, account: { id: "acct", label: null } }], () => {
+      asks.push(now);
+      return limited ? new UsageHttpError(429, null) : { plan: null, windows: [window(10)] };
+    })]);
+    const start = now;
+    for (let minute = 0; minute <= 200; minute++) {
+      await service.report(true);
+      now += 60_000;
+    }
+    expect(asks.map((at) => (at - start) / 60_000)).toEqual([0, 5, 15, 35, 75, 135, 195]);
+    now = start + 255 * 60_000;
+    limited = false;
+    expect((await service.report()).providers[0]!.problem).toBeNull();
+    limited = true;
+    now += FRESH_MS;
+    await service.report();
+    now += FRESH_MS;
+    await service.report();
+    expect(asks.slice(-2).map((at) => at - asks.at(-3)!)).toEqual([FRESH_MS, 2 * FRESH_MS]);
+  });
+
   it("numbers sign-ins of one provider that name no account, and never shows where they were found", async () => {
     const service = new UsageService(context(), [fake(() => [
       { source: "/home/me/.codex-a", token: "a", expiresAt: null },
