@@ -12,6 +12,8 @@ const ELBOW = 10;
 const RAIL = "pointer-events-none absolute w-px bg-sidebar-border";
 const ACTIVE_ON_TOUCH = "pointer-coarse:group-aria-[current=true]:pointer-events-auto pointer-coarse:group-aria-[current=true]:opacity-100";
 
+const META_BESIDE_ACTIONS_ON_TOUCH = "pointer-coarse:group-aria-[current=true]:static pointer-coarse:group-aria-[current=true]:mr-1 pointer-coarse:group-aria-[current=true]:opacity-100";
+
 export const SIDEBAR_LIST = "flex min-h-0 flex-1 flex-col gap-px overflow-y-auto pb-3 pl-2 pr-2";
 export const SIDEBAR_EMPTY = "px-2 py-6 text-ui text-muted-foreground";
 export const ROW_INPUT = "h-6 w-full min-w-0 rounded-md border border-input bg-transparent px-1.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -136,7 +138,7 @@ export function SessionRow({ active, status, title, meta, actions, open = false,
       <NestRails depth={depth} continues={continues} opensRail={opensRail} />
       <span className="min-w-0 flex-1 truncate text-ui">{title}</span>
       <div data-row-meta className="relative flex min-w-[4em] shrink-0 items-center justify-end self-stretch pl-2 text-ui">
-        <span className={cn("pointer-events-none absolute right-0 flex items-center gap-1 whitespace-nowrap text-ui text-muted-foreground transition-opacity duration-150 group-data-[state=open]:opacity-0", actions && "group-hover:opacity-0 pointer-coarse:group-aria-[current=true]:opacity-0")}>{meta}</span>
+        <span className={cn("pointer-events-none absolute right-0 flex items-center gap-1 whitespace-nowrap text-ui text-muted-foreground transition-opacity duration-150 group-data-[state=open]:opacity-0", actions && "group-hover:opacity-0", actions && META_BESIDE_ACTIONS_ON_TOUCH)}>{meta}</span>
         {actions && <div className={cn("pointer-events-none relative flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-data-[state=open]:pointer-events-auto group-data-[state=open]:opacity-100", ACTIVE_ON_TOUCH)}>{actions}</div>}
       </div>
     </div>
