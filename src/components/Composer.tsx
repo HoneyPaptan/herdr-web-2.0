@@ -9,6 +9,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 import { ArrowUp, Clock, CornerDownLeft, FileText, Plus, Square, X } from "lucide-react";
 
@@ -33,7 +34,7 @@ import {
   rankSlashCommands,
   terminalOnlyCommand,
 } from "../lib/compose.ts";
-import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/mentions.ts";
+import { activeTrigger, applyCompletion, promptRuns, type ActiveTrigger, type PromptRun } from "../lib/mentions.ts";
 import { quickReplyButtons, useSettings } from "../lib/settings.ts";
 import { BackgroundTasks } from "./BackgroundTasks.tsx";
 import { ModelPicker } from "./ModelPicker.tsx";
@@ -105,7 +106,13 @@ async function cachedPaneCommands(paneId: string, machineId: string, fetchComman
 
 const COMPOSER_COLUMN = "mx-auto w-[min(100%,var(--content-w))]";
 const COMPOSER_CARD = "composer-surface relative rounded-2xl border border-edge-surface bg-composer shadow-(--shadow-surface) backdrop-blur-xl transition-colors focus-within:border-ring data-dragging:border-ring";
-const COMPOSER_INPUT = "composer-text max-h-[10lh] min-h-7 min-w-0 flex-1 resize-none overflow-y-auto px-1 py-1 text-prompt leading-normal text-foreground outline-none placeholder:text-muted-foreground";
+const INPUT_TEXT = "px-1 py-1 text-prompt leading-normal";
+const COMPOSER_INPUT = `composer-text max-h-[10lh] min-h-7 w-full min-w-0 resize-none overflow-y-auto ${INPUT_TEXT} text-foreground outline-none placeholder:text-muted-foreground`;
+const INPUT_MIRROR = `pointer-events-none absolute inset-0 m-0 overflow-y-auto whitespace-pre-wrap break-words ${INPUT_TEXT} text-foreground`;
+const TOKEN_TONE: Record<NonNullable<PromptRun["token"]>, string> = {
+  command: "text-accent-command",
+  mention: "rounded-sm bg-accent-mention/12 text-accent-mention dark:bg-accent-mention dark:text-background",
+};
 const QUICK_ROW = cn(COMPOSER_COLUMN, "mb-2 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden");
 const QUICK_REPLY = "max-w-[16em] shrink-0 justify-start rounded-full border-border px-3 text-ui pointer-coarse:h-9";
 const PICKER_ROW = "flex h-8 w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-2 text-left text-ui text-foreground [font:inherit] aria-selected:bg-accent aria-selected:text-accent-foreground pointer-coarse:h-10";
@@ -146,6 +153,15 @@ function ContextRing({ context }: { context: NonNullable<ConversationMetadata["c
       </svg>
       {shown && <span className="min-w-0 truncate">{label}</span>}
     </Button>
+  );
+}
+
+function InputMirror({ runs, mirrorRef }: { runs: readonly PromptRun[]; mirrorRef: RefObject<HTMLDivElement | null> }) {
+  return (
+    <div ref={mirrorRef} data-slot="composer-mirror" aria-hidden="true" className={INPUT_MIRROR}>
+      {runs.map((run, index) => (run.token ? <span key={index} className={TOKEN_TONE[run.token]}>{run.text}</span> : run.text))}
+      {"\u200b"}
+    </div>
   );
 }
 
@@ -202,6 +218,7 @@ export function Composer({
   const attachmentsRef = useRef<Attachment[]>([]);
   const removedAttachments = useRef(new Set<number>());
   const fileRequest = useRef(0);
+  const mirrorRef = useRef<HTMLDivElement>(null);
   const draftKey = `herdr-web-ui:composer-draft:${paneStorageId(machineId, paneId)}`;
   const { text, sending } = useSyncExternalStore(composerDrafts.subscribe, () => composerDrafts.read(draftKey));
   const setText = useCallback((value: string | ((previous: string) => string)) => composerDrafts.set(draftKey, value), [draftKey]);
@@ -287,6 +304,7 @@ export function Composer({
     if (!element) return;
     element.style.height = "auto";
     element.style.height = `${element.scrollHeight}px`;
+    if (mirrorRef.current) mirrorRef.current.scrollTop = element.scrollTop;
   }, [text, placeholder]);
 
 
@@ -301,6 +319,8 @@ export function Composer({
     [filteredCommands],
   );
   const choices: readonly (SlashCommand | string)[] = trigger?.kind === "slash" ? orderedCommands : files;
+  const runs = useMemo(() => promptRuns(text), [text]);
+  const tokenized = runs.some((run) => run.token);
   const pickerShown = !menuDismissed && trigger !== null;
   const menuOpen = pickerShown && choices.length > 0;
   const pickerLoading = pickerShown && trigger.kind === "file" && filesLoading && files.length === 0;
@@ -673,37 +693,41 @@ export function Composer({
           )}
 
           <div className="flex items-end gap-1 p-3 pointer-coarse:p-2">
-            <textarea
-              ref={textareaRef}
-              data-slot="composer-input"
-              onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={() => { composingRef.current = false; }}
-              className={COMPOSER_INPUT}
-              rows={1}
-              maxLength={MAX_COMPOSER_CHARS}
-              value={text}
-              placeholder={placeholder}
-              aria-label={t("Message")}
-              aria-controls={menuOpen ? menuId : undefined}
-              aria-expanded={menuOpen}
-              aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              onPaste={onPaste}
-              onKeyDown={onKeyDown}
-              onClick={(event) => {
-                setCaret(event.currentTarget.selectionStart);
-                setMenuDismissed(false);
-              }}
-              onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
-              onChange={(event) => {
-                setText(event.target.value);
-                setCaret(event.target.selectionStart);
-                setMenuDismissed(false);
-                setNote(null);
-              }}
-            />
+            <div className="relative flex min-w-0 flex-1">
+              {tokenized && <InputMirror runs={runs} mirrorRef={mirrorRef} />}
+              <textarea
+                ref={textareaRef}
+                data-slot="composer-input"
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; }}
+                className={cn(COMPOSER_INPUT, tokenized && "relative text-transparent caret-foreground")}
+                onScroll={(event) => { if (mirrorRef.current) mirrorRef.current.scrollTop = event.currentTarget.scrollTop; }}
+                rows={1}
+                maxLength={MAX_COMPOSER_CHARS}
+                value={text}
+                placeholder={placeholder}
+                aria-label={t("Message")}
+                aria-controls={menuOpen ? menuId : undefined}
+                aria-expanded={menuOpen}
+                aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                onPaste={onPaste}
+                onKeyDown={onKeyDown}
+                onClick={(event) => {
+                  setCaret(event.currentTarget.selectionStart);
+                  setMenuDismissed(false);
+                }}
+                onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  setCaret(event.target.selectionStart);
+                  setMenuDismissed(false);
+                  setNote(null);
+                }}
+              />
+            </div>
             {dictation.shown && <MicButton dictation={dictation} />}
             {queueMode && (
               <Button

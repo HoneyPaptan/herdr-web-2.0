@@ -56,3 +56,19 @@ export function applyCompletion(
   const next = text.slice(0, trigger.start) + replacement + text.slice(trigger.end);
   return { text: next, caret: trigger.start + replacement.length };
 }
+
+export type PromptRun = { text: string; token?: "command" | "mention" };
+
+const PROMPT_TOKEN = /(?<=^|\n)\/[\p{L}\p{N}_-]*(?=\s|$)|(?<=^|\s)@\S+/gu;
+
+export function promptRuns(text: string): PromptRun[] {
+  const runs: PromptRun[] = [];
+  let last = 0;
+  for (const match of text.matchAll(PROMPT_TOKEN)) {
+    if (match.index > last) runs.push({ text: text.slice(last, match.index) });
+    runs.push({ text: match[0], token: match[0].startsWith("/") ? "command" : "mention" });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) runs.push({ text: text.slice(last) });
+  return runs;
+}

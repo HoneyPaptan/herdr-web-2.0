@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { activeTrigger, applyCompletion } from "./mentions.ts";
+import { activeTrigger, applyCompletion, promptRuns } from "./mentions.ts";
 
 describe("activeTrigger", () => {
   it("opens slash completion at the start of the text, including an empty query", () => {
@@ -64,5 +64,23 @@ describe("$ skills", () => {
     // a price or a shell variable inside a word is no skill
     expect(activeTrigger("cost5$x", 7, { skills: true })).toBeNull();
     expect(applyCompletion("use $dee now", { kind: "slash", prefix: "$", query: "dee", start: 4, end: 8 }, "$deepinit ")).toEqual({ text: "use $deepinit  now", caret: 14 });
+  });
+});
+
+describe("promptRuns", () => {
+  it("marks a slash command at a line start and file mentions after whitespace", () => {
+    expect(promptRuns("/review @src/a.ts now\n/plan")).toEqual([
+      { text: "/review", token: "command" },
+      { text: " " },
+      { text: "@src/a.ts", token: "mention" },
+      { text: " now\n" },
+      { text: "/plan", token: "command" },
+    ]);
+  });
+
+  it("leaves paths, mid-line slashes and email addresses as plain text", () => {
+    expect(promptRuns("/home/x")).toEqual([{ text: "/home/x" }]);
+    expect(promptRuns("a /b mail me@x.io")).toEqual([{ text: "a /b mail me@x.io" }]);
+    expect(promptRuns("")).toEqual([]);
   });
 });
