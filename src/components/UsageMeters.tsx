@@ -77,7 +77,7 @@ function Chip({ usage, count }: { usage: ProviderUsage; count: UsageCount }) {
   );
 }
 
-function Provider({ usage, now, count }: { usage: ProviderUsage; now: number; count: UsageCount }) {
+function Provider({ usage, now, count, problemShown = false }: { usage: ProviderUsage; now: number; count: UsageCount; problemShown?: boolean }) {
   const t = useT();
   const problem = problemText(t, usage);
   return (
@@ -88,7 +88,7 @@ function Provider({ usage, now, count }: { usage: ProviderUsage; now: number; co
         {usage.plan && <span className={PLAN_CHIP}>{usage.plan}</span>}
         {usage.account && <span className="usage-account ml-auto min-w-0 truncate text-muted-foreground/60">{usage.account}</span>}
       </div>
-      {problem && <p className={cn("usage-note m-0 text-ui", isError(usage) ? "is-problem text-destructive" : "text-muted-foreground/60")}>{problem}</p>}
+      {problem && !problemShown && <p className={cn("usage-note m-0 text-ui", isError(usage) ? "is-problem text-destructive" : "text-muted-foreground/60")}>{problem}</p>}
       {usage.windows.map((window, index) => {
         const reset = formatResetIn(window.resets_at, now);
         const value = meterPercent(window, count);
@@ -235,7 +235,7 @@ export function UsagePanel() {
       {open && (
         <div id={detailId} className="usage-panel-detail flex flex-col gap-3 px-2 pt-2">
           <DetailHead loading={loading} onRefresh={refresh} />
-          {shown.map((usage) => <Provider key={usage.key} usage={usage} now={now} count={count} />)}
+          {shown.map((usage) => <Provider key={usage.key} usage={usage} now={now} count={count} problemShown />)}
         </div>
       )}
     </section>
