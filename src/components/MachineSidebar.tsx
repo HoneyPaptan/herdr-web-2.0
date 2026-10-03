@@ -37,7 +37,9 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
 };
 
 interface Props { machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onAdd(): void; onSetup(machine: Machine, update?: boolean): void }
-const SIDEBAR_ACTION = "w-full justify-start px-1.5 pointer-coarse:h-9 text-ui text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80 dark:hover:bg-sidebar-accent/50";
+const SIDEBAR_PRESS = "hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80 dark:hover:bg-sidebar-accent/50 active:bg-sidebar-accent active:text-sidebar-accent-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground";
+const SIDEBAR_ACTION = `w-full justify-start px-1.5 pointer-coarse:h-9 text-ui font-normal text-sidebar-foreground/80 ${SIDEBAR_PRESS}`;
+const SIDEBAR_ICON = `shrink-0 text-sidebar-foreground/80 ${SIDEBAR_PRESS}`;
 const KEYCAPS = "ml-auto max-md:hidden";
 const MENU_ROW = "cursor-pointer text-ui";
 
@@ -58,7 +60,7 @@ function SidebarMore({ version, onAdd, onInstallHelp }: { version: string | null
   const { canInstall, installed, install } = useInstallPrompt();
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon-sm" className="sidebar-more shrink-0 opacity-80 transition-opacity hover:opacity-100" aria-label={t("More actions")}>
+      <Button variant="ghost" size="icon-sm" className={cn("sidebar-more", SIDEBAR_ICON)} aria-label={t("More actions")}>
         <Ellipsis />
       </Button>
     </DropdownMenuTrigger>
@@ -82,7 +84,7 @@ export function MachineSidebar(props: Props) {
   return <div className="sidebar-shell">
     <div className="sidebar-strip flex h-10 shrink-0 items-center gap-0.5 px-2">
       <div className="flex min-w-0 flex-1 items-center"><UsageMeters /></div>
-      <Button variant="ghost" size="icon-sm" className="sidebar-settings shrink-0 opacity-80 transition-opacity hover:opacity-100" aria-label={t("Settings")} onClick={props.actions.openSettings}><Settings className="size-4" /></Button>
+      <Button variant="ghost" size="icon-sm" className={cn("sidebar-settings", SIDEBAR_ICON)} aria-label={t("Settings")} onClick={props.actions.openSettings}><Settings className="size-4" /></Button>
       <SidebarMore version={props.version} onAdd={props.onAdd} onInstallHelp={() => setInstallHelpOpen((open) => !open)} />
     </div>
     {installHelpOpen && <p className="px-3.5 pb-2 text-ui text-muted-foreground/60" role="status">{help}</p>}
