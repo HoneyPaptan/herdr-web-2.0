@@ -731,4 +731,5 @@ export const JA: Record<string, string> = {
   "A picker is open in the terminal. Close it and try again.": "ターミナルで選択画面が開いています。閉じてからもう一度お試しください。",
   "No recent models yet. Pick one in the terminal first.": "最近使ったモデルはまだありません。先にターミナルで選んでください。",
   "This session has not used that model yet. Pick it once in the terminal.": "このセッションではまだそのモデルを使っていません。一度ターミナルで選んでください。",
+  "Resize sidebar": "サイドバーの幅を変更",
 };

@@ -2,6 +2,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import type { Machine } from "../../../shared/machines.ts";
 import { MachineActionBanner, MachineSidebar } from "../../components/MachineSidebar.tsx";
+import { SidebarResizer } from "../../components/SidebarResizer.tsx";
 import type { AppActions } from "../../lib/actions.ts";
 import { useT } from "../../lib/i18n.ts";
 import { useAppStore } from "../../store/appStore.ts";
@@ -47,6 +48,7 @@ export function SidebarHost({ actions }: { actions: AppActions }) {
       <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
         <LoadError />
         <MachineSidebar version={version} machines={machines} selectedMachineId={machineId} selectedPaneId={paneId} actions={actions} onSelect={selectTarget} onAdd={addMachine} onSetup={setupFromSidebar} onNew={openNewSession} />
+        <SidebarResizer />
       </aside>
       {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
     </>

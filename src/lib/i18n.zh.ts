@@ -733,4 +733,5 @@ export const ZH: Record<string, string> = {
   "A picker is open in the terminal. Close it and try again.": "终端中打开了选择窗口，请关闭后重试。",
   "No recent models yet. Pick one in the terminal first.": "还没有最近使用的模型，请先在终端中选择一个。",
   "This session has not used that model yet. Pick it once in the terminal.": "此会话尚未使用该模型，请先在终端中选择一次。",
+  "Resize sidebar": "调整侧边栏宽度",
 };

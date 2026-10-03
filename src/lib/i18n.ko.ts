@@ -729,4 +729,5 @@ export const KO: Record<string, string> = {
   "A picker is open in the terminal. Close it and try again.": "터미널에 선택 창이 열려 있습니다. 닫은 뒤 다시 시도하세요.",
   "No recent models yet. Pick one in the terminal first.": "최근 사용한 모델이 아직 없습니다. 먼저 터미널에서 선택하세요.",
   "This session has not used that model yet. Pick it once in the terminal.": "이 세션에서는 아직 그 모델을 사용하지 않았습니다. 터미널에서 한 번 선택하세요.",
+  "Resize sidebar": "사이드바 크기 조절",
 };

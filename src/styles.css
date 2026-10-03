@@ -193,10 +193,12 @@ body {
 }
 
 .sidebar {
+  --sidebar-now: min(var(--sidebar-size, var(--sidebar-w)), var(--sidebar-w));
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: var(--sidebar-w);
-  flex: 0 0 var(--sidebar-w);
+  width: var(--sidebar-now);
+  flex: 0 0 var(--sidebar-now);
   min-height: 0;
   background: var(--bg-panel);
   border-right: var(--hairline-w) solid var(--border);
