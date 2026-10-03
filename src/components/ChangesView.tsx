@@ -173,7 +173,7 @@ function DiffPane({ paneId, file, onBack }: { paneId: string; file: ChangedFile 
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className={PANE_BAR}>
         {onBack && (
-          <button type="button" onClick={onBack} className="-ml-1 flex shrink-0 cursor-pointer items-center gap-0.5 rounded-md px-1 py-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+          <button type="button" data-slot="changes-back" onClick={onBack} className="-ml-1 flex shrink-0 cursor-pointer items-center gap-0.5 rounded-md px-1 py-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring">
             <ChevronLeft aria-hidden="true" className="size-4" />
             {t("Files")}
           </button>

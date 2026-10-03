@@ -94,7 +94,7 @@ const VIEW_LABEL = "max-[560px]:hidden";
 
 function ViewTab({ pressed, label, onClick, icon, children }: { pressed: boolean; label: string; onClick: () => void; icon: ReactNode; children: ReactNode }) {
   return (
-    <button type="button" aria-pressed={pressed} aria-label={label} onClick={onClick} className={VIEW_TAB}>
+    <button type="button" data-slot="view-tab" aria-pressed={pressed} aria-label={label} onClick={onClick} className={VIEW_TAB}>
       {icon}
       {children}
     </button>
