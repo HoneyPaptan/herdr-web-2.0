@@ -14,6 +14,8 @@ export function useMachineApi() {
     uploadPaneImage: (pane: string, image: Blob) => api.uploadPaneImage(pane, image, id),
     fetchPaneCommands: (pane: string) => api.fetchPaneCommands(pane, id),
     fetchPaneFiles: (pane: string, query: string, limit = 20) => api.fetchPaneFiles(pane, query, limit, id),
+    fetchPaneChanges: (pane: string) => api.fetchPaneChanges(pane, id),
+    fetchPaneChangeDiff: (pane: string, path: string) => api.fetchPaneChangeDiff(pane, path, id),
     fetchPaneOmoActivity: (pane: string) => api.fetchPaneOmoActivity(pane, id),
     closePane: (pane: string) => api.closePane(pane, id),
     renamePane: (pane: string, label: string) => api.renamePane(pane, label, id),

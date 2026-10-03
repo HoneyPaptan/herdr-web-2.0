@@ -1,35 +1,12 @@
 import { join } from "node:path";
 
+import type { ChangeDiff, ChangedFile, ChangeStatus, PaneChanges } from "../shared/changes.ts";
 import { git } from "./git.ts";
 
 const MAX_FILES = 500;
 const MAX_PATCH_BYTES = 512 * 1024;
 const MAX_COUNTED_BYTES = 1024 * 1024;
 const BINARY_SNIFF_BYTES = 8_000;
-
-export type ChangeStatus = "added" | "modified" | "deleted" | "renamed" | "untracked";
-
-export interface ChangedFile {
-  path: string;
-  oldPath?: string;
-  status: ChangeStatus;
-  added: number;
-  removed: number;
-  binary: boolean;
-}
-
-export interface PaneChanges {
-  root: string | null;
-  files: ChangedFile[];
-  added: number;
-  removed: number;
-  truncated: boolean;
-}
-
-export interface ChangeDiff {
-  patch: string;
-  truncated: boolean;
-}
 
 const STATUS_LETTERS: Record<string, ChangeStatus> = { A: "added", M: "modified", D: "deleted", R: "renamed", C: "added", T: "modified" };
 

@@ -18,6 +18,7 @@ import type {
   UsageReport,
   WorkspaceCreated,
 } from "../../shared/protocol.ts";
+import type { ChangeDiff, PaneChanges } from "../../shared/changes.ts";
 import type { PaneScrollInfo } from "../../shared/herdr-api.generated.ts";
 import type { UpdateCommand, UpdateStatus } from "../../shared/update.ts";
 import type { AlertPrefs } from "../../shared/notify-policy.ts";
@@ -357,6 +358,15 @@ export async function fetchPaneOmoActivity(paneId: string, machineId = "local"):
 export async function fetchPaneFiles(paneId: string, query: string, limit = 20, machineId = "local"): Promise<string[]> {
   const params = new URLSearchParams({ pane_id: paneId, q: query, limit: String(limit) });
   return (await getJson<{ files: string[] }>(machinePath(machineId, `pane/files?${params.toString()}`))).files;
+}
+
+export async function fetchPaneChanges(paneId: string, machineId = "local"): Promise<PaneChanges> {
+  return getJson<PaneChanges>(machinePath(machineId, `pane/changes?pane_id=${encodeURIComponent(paneId)}`));
+}
+
+export async function fetchPaneChangeDiff(paneId: string, path: string, machineId = "local"): Promise<ChangeDiff> {
+  const params = new URLSearchParams({ pane_id: paneId, path });
+  return getJson<ChangeDiff>(machinePath(machineId, `pane/changes/diff?${params.toString()}`));
 }
 
 /** GET /api/pane/prompt: the agent's interactive menu currently on screen, or null. */
