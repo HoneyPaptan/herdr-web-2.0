@@ -321,12 +321,15 @@ export interface OmoActivity {
   server_time: string;
 }
 
+export type ScrollbackReason = "no_reader" | "not_started";
+
 /** GET /api/pane/conversation: native conversation with settings, or scrollback fallback. */
 export interface ConversationResponse {
   /** Stable across appends; changes on transcript replacement or native context clear. */
   history_id?: string;
   source: "claude-transcript" | "omp-transcript" | "omo-transcript" | "gjc-transcript" | "pi-transcript" | "codex-transcript" | "scrollback";
   turns: ConversationTurn[];
+  scrollback_reason?: ScrollbackReason;
   metadata?: ConversationMetadata;
   /**
    * Where the first turn sits in the transcript: pass it as `before` for the page

@@ -31,7 +31,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import nodePath, { type PlatformPath } from "node:path";
 
-import type { ConversationMetadata, ConversationPart, ConversationTurn, HerdrPane, SessionSnapshot } from "../shared/protocol.ts";
+import type { ConversationMetadata, ConversationPart, ConversationTurn, HerdrPane, ScrollbackReason, SessionSnapshot } from "../shared/protocol.ts";
 import { herdrRpc, sessionSnapshot } from "./herdr/client.ts";
 import { codexHistorySegments, createCodexTranscriptParser, codexOutputText, codexTranscriptPath, defaultCodexHome, parseCodexTranscript, readRange } from "./codex.ts";
 import { CODEX_IMAGE_REF, codexTranscriptImage } from "./codex-images.ts";
@@ -225,6 +225,12 @@ export function parseClaudeTranscript(text: string, maxTurns = MAX_TURNS): Conve
 
 /** Re-parse on file changes, including replacement and same-size rewrites. */
 const cache = new Map<string, { signature: string; turns: ConversationTurn[]; metadata: ConversationMetadata; cursor: string | null; abandoned?: { count: number; branches: number; summary: string | null } }>();
+
+const UNREADABLE_REASONS = new Set(["no_recognized_transcript", "branch_unreadable"]);
+
+export function scrollbackReason(error: ConversationUnavailable): ScrollbackReason {
+  return UNREADABLE_REASONS.has(error.message) ? "no_reader" : "not_started";
+}
 
 export class ConversationUnavailable extends Error {
   constructor(reason: string) {

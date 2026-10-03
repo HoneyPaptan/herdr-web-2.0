@@ -17,7 +17,7 @@ import { paneFiles } from "./files.ts";
 import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
 import { serveStatic } from "./static.ts";
 import { startStatusCollector } from "./collector.ts";
-import { conversationImage, ConversationUnavailable, HistoryChanged, paneConversation, paneRunsOmo, toolOutput } from "./conversation.ts";
+import { conversationImage, ConversationUnavailable, HistoryChanged, paneConversation, paneRunsOmo, scrollbackReason, toolOutput } from "./conversation.ts";
 import { omoPanes } from "./omo.ts";
 import { OMO_ALIASES, OmoStatus, processAlive } from "./omo-status.ts";
 import { omoRuns, omoTasks } from "./omo-tasks.ts";
@@ -1281,7 +1281,7 @@ export function createServer(
           if (error instanceof HistoryChanged) return jsonResponse({ error: { code: "history_changed", message: error.message } }, 409);
           // an unrecognized pane is not an error: the client falls back to the
           // scrollback transcript, exactly like chatmux's terminal fallback
-          if (error instanceof ConversationUnavailable) return jsonResponse({ source: "scrollback", turns: [] });
+          if (error instanceof ConversationUnavailable) return jsonResponse({ source: "scrollback", turns: [], scrollback_reason: scrollbackReason(error) });
           return errorResponse(error);
         }
       }

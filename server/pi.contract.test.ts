@@ -209,5 +209,5 @@ it("falls back to the scrollback when the reported path leaves the store", async
   await reportSession(outside);
   const response = await fetch(`http://127.0.0.1:${server.port}/api/pane/conversation?pane_id=${encodeURIComponent(paneId)}`);
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ source: "scrollback", turns: [] });
+  expect(await response.json()).toEqual({ source: "scrollback", turns: [], scrollback_reason: "not_started" });
 });
