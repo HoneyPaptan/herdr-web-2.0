@@ -1,30 +1,21 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { OpencodeModelChoice, OpencodeModels, OpencodeSwitchFailure } from "../shared/opencode-model.ts";
-import { paneRead, paneSendKeys, paneSendText } from "./herdr/client.ts";
+import type { OpencodeModelChoice, OpencodeModels } from "../shared/opencode-model.ts";
+import { paneSendKeys, paneSendText } from "./herdr/client.ts";
+import { PaneSwitchError, cycleTo, exclusive, herdrScreenPane, settle, type ScreenPane, type Shown } from "./pane-switch.ts";
 
-const POLL_MS = 80;
-const SETTLE_MS = 1_500;
-const MAX_PRESSES = 32;
 const F2 = "\x1bOQ";
 const DIALOG_TITLE = /^[\s│┃|]*Select (?:model|variant)\b/;
 const NAME_CHAR = /[\p{L}\p{N}._-]/u;
 
 type Row = Record<string, unknown>;
-type Shown = { id: string; line: number };
 
 export type OpencodeKey = "esc" | "f2";
 export type OpencodePaths = { recent: string; catalog: string };
 
-export interface OpencodePane {
-  screen(): Promise<string>;
+export interface OpencodePane extends ScreenPane {
   press(key: OpencodeKey): Promise<void>;
-  wait(ms: number): Promise<void>;
-}
-
-export class OpencodeSwitchError extends Error {
-  constructor(readonly code: OpencodeSwitchFailure) { super(code); }
 }
 
 export function opencodePaths(env: Record<string, string | undefined> = process.env): OpencodePaths {
@@ -109,51 +100,25 @@ export function dialogShown(screen: string): boolean {
   return screen.split("\n").some((line) => DIALOG_TITLE.test(line));
 }
 
-function lineOf(screen: string, line: number): string {
-  return screen.split("\n")[line] ?? "";
-}
-
-async function settle(pane: OpencodePane, done: (screen: string) => boolean): Promise<string | null> {
-  for (let waited = 0; waited <= SETTLE_MS; waited += POLL_MS) {
-    const screen = await pane.screen();
-    if (done(screen)) return screen;
-    await pane.wait(POLL_MS);
-  }
-  return null;
-}
-
 async function closeDialog(pane: OpencodePane): Promise<string> {
   const screen = await pane.screen();
   if (!dialogShown(screen)) return screen;
   await pane.press("esc");
   const closed = await settle(pane, (next) => !dialogShown(next));
-  if (closed === null) throw new OpencodeSwitchError("dialog_stuck");
+  if (closed === null) throw new PaneSwitchError("dialog_stuck");
   return closed;
 }
 
 export async function switchOpencodeModel(pane: OpencodePane, models: OpencodeModelChoice[], target: string): Promise<void> {
-  if (!models.some((choice) => choice.id === target)) throw new OpencodeSwitchError("not_listed");
+  if (!models.some((choice) => choice.id === target)) throw new PaneSwitchError("not_listed");
   const screen = await closeDialog(pane);
-  const start = findShown(screen, models);
-  if (start === null) throw new OpencodeSwitchError("not_shown");
-  let footer = lineOf(screen, start.line);
-  let shown: string | null = start.id;
-  for (let presses = 0; shown !== target; presses += 1) {
-    if (presses === MAX_PRESSES) throw new OpencodeSwitchError("not_reachable");
-    await pane.press("f2");
-    const next = await settle(pane, (candidate) => lineOf(candidate, start.line) !== footer);
-    if (next === null) throw new OpencodeSwitchError("no_response");
-    footer = lineOf(next, start.line);
-    shown = findShown(next, models)?.id ?? null;
-    if (shown === start.id) throw new OpencodeSwitchError("not_reachable");
-  }
+  await cycleTo(pane, screen, target, (next) => findShown(next, models), () => pane.press("f2"));
 }
 
 function herdrOpencodePane(paneId: string): OpencodePane {
   return {
-    screen: async () => (await paneRead({ paneId, source: "visible", format: "text" })).text,
+    ...herdrScreenPane(paneId),
     press: (key) => key === "esc" ? paneSendKeys(paneId, ["esc"]) : paneSendText(paneId, F2),
-    wait: (ms) => Bun.sleep(ms),
   };
 }
 
@@ -162,14 +127,6 @@ export async function paneOpencodeModels(paneId: string): Promise<OpencodeModels
   return { current: findShown(screen, models)?.id ?? null, models };
 }
 
-const switching = new Set<string>();
-
-export async function switchPaneOpencodeModel(paneId: string, target: string): Promise<void> {
-  if (switching.has(paneId)) throw new OpencodeSwitchError("busy");
-  switching.add(paneId);
-  try {
-    await switchOpencodeModel(herdrOpencodePane(paneId), await opencodeRecentModels(), target);
-  } finally {
-    switching.delete(paneId);
-  }
+export function switchPaneOpencodeModel(paneId: string, target: string): Promise<void> {
+  return exclusive(paneId, async () => switchOpencodeModel(herdrOpencodePane(paneId), await opencodeRecentModels(), target));
 }

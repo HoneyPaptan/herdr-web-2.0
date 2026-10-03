@@ -14,7 +14,8 @@ import { remoteAccess, tailscaleIdentity } from "./tailscale.ts";
 import { paneCommands } from "./commands.ts";
 import { paneChangeDiff, paneChanges } from "./changes.ts";
 import { paneFiles } from "./files.ts";
-import { OpencodeSwitchError, paneOpencodeModels, switchPaneOpencodeModel } from "./opencode-model.ts";
+import { paneOpencodeModels, switchPaneOpencodeModel } from "./opencode-model.ts";
+import { PaneSwitchError } from "./pane-switch.ts";
 import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
 import { serveStatic } from "./static.ts";
 import { startStatusCollector } from "./collector.ts";
@@ -1220,7 +1221,7 @@ export function createServer(
           await switchPaneOpencodeModel(payload.pane_id, payload.model);
           return jsonResponse({ ok: true });
         } catch (error) {
-          if (error instanceof OpencodeSwitchError) return jsonResponse({ error: { code: error.code, message: error.message } }, 409);
+          if (error instanceof PaneSwitchError) return jsonResponse({ error: { code: error.code, message: error.message } }, 409);
           return errorResponse(error);
         }
       }
