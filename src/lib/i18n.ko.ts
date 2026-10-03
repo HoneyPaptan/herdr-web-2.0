@@ -722,4 +722,11 @@ export const KO: Record<string, string> = {
   "No line changes, only the file mode or name.": "줄 변경은 없고 파일 모드나 이름만 바뀌었습니다.",
   "Diff cut short: too large to show in full.": "차이가 너무 커서 일부만 표시합니다.",
   "Showing the first {n} files.": "처음 {n}개 파일을 표시합니다.",
+  "Recent models": "최근 사용한 모델",
+  "Switching…": "전환하는 중…",
+  "Could not load the models.": "모델을 불러오지 못했습니다.",
+  "Could not switch the model. Try again.": "모델을 전환하지 못했습니다. 다시 시도하세요.",
+  "A picker is open in the terminal. Close it and try again.": "터미널에 선택 창이 열려 있습니다. 닫은 뒤 다시 시도하세요.",
+  "No recent models yet. Pick one in the terminal first.": "최근 사용한 모델이 아직 없습니다. 먼저 터미널에서 선택하세요.",
+  "This session has not used that model yet. Pick it once in the terminal.": "이 세션에서는 아직 그 모델을 사용하지 않았습니다. 터미널에서 한 번 선택하세요.",
 };

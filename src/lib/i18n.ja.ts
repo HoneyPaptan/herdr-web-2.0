@@ -724,4 +724,11 @@ export const JA: Record<string, string> = {
   "No line changes, only the file mode or name.": "行の変更はありません。ファイルのモードか名前だけが変わっています。",
   "Diff cut short: too large to show in full.": "差分が大きすぎるため、途中までしか表示していません。",
   "Showing the first {n} files.": "最初の {n} 件のファイルを表示しています。",
+  "Recent models": "最近使ったモデル",
+  "Switching…": "切り替えています…",
+  "Could not load the models.": "モデルを読み込めませんでした。",
+  "Could not switch the model. Try again.": "モデルを切り替えられませんでした。もう一度お試しください。",
+  "A picker is open in the terminal. Close it and try again.": "ターミナルで選択画面が開いています。閉じてからもう一度お試しください。",
+  "No recent models yet. Pick one in the terminal first.": "最近使ったモデルはまだありません。先にターミナルで選んでください。",
+  "This session has not used that model yet. Pick it once in the terminal.": "このセッションではまだそのモデルを使っていません。一度ターミナルで選んでください。",
 };

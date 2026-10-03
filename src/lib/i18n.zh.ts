@@ -726,4 +726,11 @@ export const ZH: Record<string, string> = {
   "No line changes, only the file mode or name.": "没有行更改，只有文件模式或名称变化。",
   "Diff cut short: too large to show in full.": "差异过大，仅显示部分内容。",
   "Showing the first {n} files.": "显示前 {n} 个文件。",
+  "Recent models": "最近使用的模型",
+  "Switching…": "正在切换…",
+  "Could not load the models.": "无法加载模型。",
+  "Could not switch the model. Try again.": "无法切换模型，请重试。",
+  "A picker is open in the terminal. Close it and try again.": "终端中打开了选择窗口，请关闭后重试。",
+  "No recent models yet. Pick one in the terminal first.": "还没有最近使用的模型，请先在终端中选择一个。",
+  "This session has not used that model yet. Pick it once in the terminal.": "此会话尚未使用该模型，请先在终端中选择一次。",
 };

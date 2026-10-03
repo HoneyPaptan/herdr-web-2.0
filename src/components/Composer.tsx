@@ -789,6 +789,7 @@ export function Composer({
           <Plus />
         </Button>
         <ModelPicker
+          paneId={paneId}
           agent={agent}
           agentLabel={agentLabel}
           model={metadata?.model ?? null}
