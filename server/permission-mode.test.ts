@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import type { PermissionMode } from "../shared/permission-mode.ts";
-import { findMode, hasPermissionModes, switchPermissionMode, type ModeKey, type ModePane } from "./permission-mode.ts";
+import { hasPermissionModes, type PermissionMode } from "../shared/permission-mode.ts";
+import { findMode, switchPermissionMode, type ModeKey, type ModePane } from "./permission-mode.ts";
 
 const CLAUDE_FOOTERS: Record<string, string> = {
   manual: "  ⏸ manual mode on (shift+tab to cycle)",

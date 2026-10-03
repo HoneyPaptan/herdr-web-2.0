@@ -1,4 +1,4 @@
-import type { PermissionMode, PermissionModes } from "../shared/permission-mode.ts";
+import { hasPermissionModes, type PermissionMode, type PermissionModeAgent, type PermissionModes } from "../shared/permission-mode.ts";
 import { paneSendKeys } from "./herdr/client.ts";
 import { PaneSwitchError, cycleTo, exclusive, herdrScreenPane, type ScreenPane, type Shown } from "./pane-switch.ts";
 import { parseInteractivePrompt } from "./prompt.ts";
@@ -44,19 +44,14 @@ function geminiKey(from: PermissionMode, to: PermissionMode): ModeKey {
   return to === "yolo" || (from === "yolo" && to === "manual") ? "ctrl+y" : "shift+tab";
 }
 
-const DRIVERS: Record<string, ModeDriver> = {
+const DRIVERS: Record<PermissionModeAgent, ModeDriver> = {
   claude: { modes: ["manual", "acceptEdits", "plan", "auto", "yolo"], read: readClaude, key: () => "shift+tab" },
   gemini: { modes: ["manual", "acceptEdits", "plan", "yolo"], read: readGemini, key: geminiKey },
 };
 
-export function hasPermissionModes(agent: string | null): agent is string {
-  return agent !== null && agent in DRIVERS;
-}
-
 function driverFor(agent: string): ModeDriver {
-  const driver = DRIVERS[agent];
-  if (!driver) throw new PaneSwitchError("not_listed");
-  return driver;
+  if (!hasPermissionModes(agent)) throw new PaneSwitchError("not_listed");
+  return DRIVERS[agent];
 }
 
 export function findMode(screen: string, agent: string): Shown<PermissionMode> | null {
