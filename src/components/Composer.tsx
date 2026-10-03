@@ -102,8 +102,20 @@ async function cachedPaneCommands(paneId: string, machineId: string, fetchComman
   return commands;
 }
 
-const COMPOSER_CARD = "composer-surface relative mx-auto w-[min(100%,var(--content-w))] rounded-2xl border border-edge-surface bg-composer shadow-(--shadow-surface) backdrop-blur-xl transition-colors focus-within:border-ring data-dragging:border-ring";
+const COMPOSER_COLUMN = "mx-auto w-[min(100%,var(--content-w))]";
+const COMPOSER_CARD = "composer-surface relative rounded-2xl border border-edge-surface bg-composer shadow-(--shadow-surface) backdrop-blur-xl transition-colors focus-within:border-ring data-dragging:border-ring";
 const COMPOSER_INPUT = "composer-text max-h-[10lh] min-h-7 min-w-0 flex-1 resize-none overflow-y-auto px-1 py-1 text-prompt leading-normal text-foreground outline-none placeholder:text-muted-foreground";
+const QUICK_ROW = cn(COMPOSER_COLUMN, "mb-2 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden");
+const QUICK_REPLY = "max-w-[16em] shrink-0 justify-start rounded-full border-border px-3 text-ui pointer-coarse:h-9";
+const PICKER_ROW = "flex h-8 w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-2 text-left text-ui text-foreground [font:inherit] aria-selected:bg-accent aria-selected:text-accent-foreground pointer-coarse:h-10";
+const PICKER_GROUP = "[&+&]:mt-2 [&+&]:border-t [&+&]:border-dotted [&+&]:border-border/40 [&+&]:pt-2";
+const PICKER_LABEL = "px-2 pb-0.5 text-ui text-muted-foreground/50";
+const ATTACHMENT = "group relative shrink-0";
+const ATTACHMENT_FACE = "size-14 rounded-lg border border-hairline-strong bg-card object-cover";
+const ATTACHMENT_FILE = "flex h-14 max-w-56 items-center gap-2 rounded-lg border border-hairline-strong bg-card px-2.5";
+const ATTACHMENT_STATE = "pointer-events-none absolute inset-x-1 bottom-1 truncate rounded-full bg-popover px-1 text-center text-[0.7rem] leading-tight text-foreground";
+const ATTACHMENT_REMOVE = "absolute -top-1.5 -right-1.5 flex cursor-pointer items-center justify-center rounded-full border border-border bg-secondary p-0.5 text-secondary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-7";
+const COMPOSER_LINE = cn(COMPOSER_COLUMN, "mt-1 px-2 text-ui");
 const ROUND_ACTION = "shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100 pointer-coarse:size-9";
 const RING_STROKE = "fill-none [stroke-width:2.5]";
 
@@ -505,176 +517,181 @@ export function Composer({
   const menuId = `composer-menu-${paneId}`;
 
   return (
-    <div className="composer" role="group" aria-label={t("Message composer")}>
+    <div className="composer relative w-full flex-none bg-background px-4 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)-1rem))] in-data-keyboard:pb-2 max-[480px]:px-2" role="group" aria-label={t("Message composer")}>
       {settings.showSuggestionChip && offered !== null && text === "" && (
-        <div className="composer-quick composer-suggestion-row">
-          <button type="button" className="composer-quick-reply composer-suggestion" title={t("Use the suggestion")} onClick={() => setTextAndCaret(offered, offered.length)}>
-            <span aria-hidden="true">↹ </span>{offered}
-          </button>
+        <div className={cn(QUICK_ROW, "pointer-fine:hidden")}>
+          <Button variant="outline" size="sm" className={cn(QUICK_REPLY, "max-w-full border-dashed text-muted-foreground")} aria-label={t("Use the suggestion")} onClick={() => setTextAndCaret(offered, offered.length)}>
+            <span className="truncate">{offered}</span>
+          </Button>
         </div>
       )}
 
       {quickOpen && quickReplies.length > 0 && (
-        <div className="composer-quick" role="group" aria-label={t("Quick replies")}>
+        <div className={QUICK_ROW} role="group" aria-label={t("Quick replies")}>
           {quickReplies.map((reply, index) => (
-            <button
+            <Button
               key={`${index}:${reply}`}
-              type="button"
-              className="composer-quick-reply"
-              title={t("Send “{reply}”", { reply })}
+              variant="outline"
+              size="sm"
+              className={QUICK_REPLY}
+              aria-label={t("Send “{reply}”", { reply })}
               disabled={!connected || sending}
               onClick={() => sendQuick(reply)}
             >
-              {reply}
-            </button>
+              <span className="truncate">{reply}</span>
+            </Button>
           ))}
         </div>
       )}
 
-      <div
-        data-slot="composer-card"
-        data-dragging={dragging || undefined}
-        className={COMPOSER_CARD}
-        onDragEnter={(event) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-        }}
-        onDrop={onDrop}
-      >
+      <div className={cn(COMPOSER_COLUMN, "relative")}>
         {menuOpen && trigger && (
-          <div id={menuId} className="menu composer-menu" role="listbox" aria-label={t(trigger.kind === "slash" ? "Slash commands" : "Files")}>
-            {trigger.kind === "slash" ? (
-              COMMAND_SOURCES.map((source) => {
-                const group = filteredCommands.filter((command) => command.source === source);
-                if (group.length === 0) return null;
-                return (
-                  <div className="composer-menu-group" key={source}>
-                    <div className="menu-heading">{t(SOURCE_LABEL[source])}</div>
-                    {group.map((command) => {
-                      const index = orderedCommands.indexOf(command);
-                      return (
-                        <button
-                          id={`${menuId}-${index}`}
-                          key={`${command.source}:${command.name}`}
-                          type="button"
-                          className="menu-item"
-                          role="option"
-                          aria-selected={index === selectedIndex}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => selectCompletion(command, trigger)}
-                        >
-                          <span className="menu-item-main">{command.trigger ?? "/"}{command.name}</span>
-                          <span className="menu-item-hint">{command.description}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="composer-menu-group">
-                <div className="menu-heading">{t("Files")}</div>
-                {files.map((file, index) => (
-                  <button
-                    id={`${menuId}-${index}`}
-                    key={file}
-                    type="button"
-                    className="menu-item"
-                    role="option"
-                    aria-selected={index === selectedIndex}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => selectCompletion(file, trigger)}
-                  >
-                    <span className="menu-item-main">{file}</span>
+          <div className="absolute bottom-full left-0 z-50 mb-1.5 w-full overflow-hidden rounded-xl border border-hairline-strong bg-picker text-popover-foreground shadow-md backdrop-blur-lg">
+            <div id={menuId} className="flex max-h-[14.5rem] flex-col overflow-x-hidden overflow-y-auto overscroll-contain p-1 [scrollbar-width:none]" role="listbox" aria-label={t(trigger.kind === "slash" ? "Slash commands" : "Files")}>
+              {trigger.kind === "slash" ? (
+                COMMAND_SOURCES.map((source) => {
+                  const group = filteredCommands.filter((command) => command.source === source);
+                  if (group.length === 0) return null;
+                  return (
+                    <div className={PICKER_GROUP} key={source}>
+                      <div className={PICKER_LABEL}>{t(SOURCE_LABEL[source])}</div>
+                      {group.map((command) => {
+                        const index = orderedCommands.indexOf(command);
+                        return (
+                          <button
+                            id={`${menuId}-${index}`}
+                            key={`${command.source}:${command.name}`}
+                            type="button"
+                            className={PICKER_ROW}
+                            role="option"
+                            aria-selected={index === selectedIndex}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => selectCompletion(command, trigger)}
+                          >
+                            <span className="shrink-0 font-medium">{command.trigger ?? "/"}{command.name}</span>
+                            <span className="min-w-0 truncate text-muted-foreground">{command.description}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={PICKER_GROUP}>
+                  <div className={PICKER_LABEL}>{t("Files")}</div>
+                  {files.map((file, index) => (
+                    <button
+                      id={`${menuId}-${index}`}
+                      key={file}
+                      type="button"
+                      className={PICKER_ROW}
+                      role="option"
+                      aria-selected={index === selectedIndex}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectCompletion(file, trigger)}
+                    >
+                      <span className="min-w-0 truncate">{file}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div
+          data-slot="composer-card"
+          data-dragging={dragging || undefined}
+          className={COMPOSER_CARD}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+          }}
+          onDrop={onDrop}
+        >
+          {attachments.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto px-3 pt-3" aria-label={t("Attached files")}>
+              {attachments.map((attachment) => (
+                <div className={ATTACHMENT} key={attachment.id}>
+                  {attachment.previewUrl ? <img className={cn(ATTACHMENT_FACE, attachment.state === "error" && "border-destructive")} src={attachment.previewUrl} alt={attachment.file.name} />
+                    : <span className={cn(ATTACHMENT_FILE, attachment.state === "error" && "border-destructive")}><FileText aria-hidden="true" className="size-5 shrink-0" /><span className="min-w-0 truncate text-ui">{attachment.file.name}</span></span>}
+                  <span className={ATTACHMENT_STATE}>
+                    {t(attachment.state === "uploading" ? "Uploading" : attachment.state === "error" ? "Failed" : "Attached")}
+                  </span>
+                  <button type="button" className={ATTACHMENT_REMOVE} aria-label={t("Remove {file}", { file: attachment.file.name })} onClick={() => removeAttachment(attachment)}>
+                    <X aria-hidden="true" className="size-3" strokeWidth={2.5} />
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {attachments.length > 0 && (
-          <div className="composer-attachments" aria-label={t("Attached files")}>
-            {attachments.map((attachment) => (
-              <div className={`composer-attachment is-${attachment.state}`} key={attachment.id}>
-                {attachment.previewUrl ? <img src={attachment.previewUrl} alt={attachment.file.name} />
-                  : <span className="composer-attachment-file" title={attachment.file.name}><FileText aria-hidden="true" /><span>{attachment.file.name}</span></span>}
-                <span className="composer-attachment-state">
-                  {t(attachment.state === "uploading" ? "Uploading" : attachment.state === "error" ? "Failed" : "Attached")}
-                </span>
-                <button type="button" aria-label={t("Remove {file}", { file: attachment.file.name })} onClick={() => removeAttachment(attachment)}>
-                  <X aria-hidden="true" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-end gap-1 p-3 pointer-coarse:p-2">
-          <textarea
-            ref={textareaRef}
-            data-slot="composer-input"
-            onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { composingRef.current = false; }}
-            className={COMPOSER_INPUT}
-            rows={1}
-            maxLength={MAX_COMPOSER_CHARS}
-            value={text}
-            placeholder={placeholder}
-            aria-label={t("Message")}
-            aria-controls={menuOpen ? menuId : undefined}
-            aria-expanded={menuOpen}
-            aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            onPaste={onPaste}
-            onKeyDown={onKeyDown}
-            onClick={(event) => {
-              setCaret(event.currentTarget.selectionStart);
-              setMenuDismissed(false);
-            }}
-            onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
-            onChange={(event) => {
-              setText(event.target.value);
-              setCaret(event.target.selectionStart);
-              setMenuDismissed(false);
-              setNote(null);
-            }}
-          />
-          {dictation.shown && <MicButton dictation={dictation} />}
-          {queueMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 rounded-full text-ui pointer-coarse:h-9"
-              aria-label={t("Queue message")}
-              disabled={!connected || uploading || sending || text.trim().length === 0}
-              onClick={send}
-            >
-              <Clock />
-              {t("Queue")}
-            </Button>
+                </div>
+              ))}
+            </div>
           )}
-          {isWorking ? (
-            <Button size="icon-sm" className={ROUND_ACTION} aria-label={t("Stop agent")} disabled={!connected} onClick={onAbort}>
-              <Square className="fill-current" />
-            </Button>
-          ) : !queueMode ? (
-            <Button
-              size="icon-sm"
-              className={ROUND_ACTION}
-              aria-label={t("Send message")}
-              disabled={!connected || uploading || sending || text.trim().length === 0}
-              onClick={send}
-            >
-              <ArrowUp strokeWidth={2} />
-            </Button>
-          ) : null}
+
+          <div className="flex items-end gap-1 p-3 pointer-coarse:p-2">
+            <textarea
+              ref={textareaRef}
+              data-slot="composer-input"
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              className={COMPOSER_INPUT}
+              rows={1}
+              maxLength={MAX_COMPOSER_CHARS}
+              value={text}
+              placeholder={placeholder}
+              aria-label={t("Message")}
+              aria-controls={menuOpen ? menuId : undefined}
+              aria-expanded={menuOpen}
+              aria-activedescendant={menuOpen ? `${menuId}-${selectedIndex}` : undefined}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              onPaste={onPaste}
+              onKeyDown={onKeyDown}
+              onClick={(event) => {
+                setCaret(event.currentTarget.selectionStart);
+                setMenuDismissed(false);
+              }}
+              onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
+              onChange={(event) => {
+                setText(event.target.value);
+                setCaret(event.target.selectionStart);
+                setMenuDismissed(false);
+                setNote(null);
+              }}
+            />
+            {dictation.shown && <MicButton dictation={dictation} />}
+            {queueMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 rounded-full text-ui pointer-coarse:h-9"
+                aria-label={t("Queue message")}
+                disabled={!connected || uploading || sending || text.trim().length === 0}
+                onClick={send}
+              >
+                <Clock />
+                {t("Queue")}
+              </Button>
+            )}
+            {isWorking ? (
+              <Button size="icon-sm" className={ROUND_ACTION} aria-label={t("Stop agent")} disabled={!connected} onClick={onAbort}>
+                <Square className="fill-current" />
+              </Button>
+            ) : !queueMode ? (
+              <Button
+                size="icon-sm"
+                className={ROUND_ACTION}
+                aria-label={t("Send message")}
+                disabled={!connected || uploading || sending || text.trim().length === 0}
+                onClick={send}
+              >
+                <ArrowUp strokeWidth={2} />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -726,9 +743,9 @@ export function Composer({
         {metadata?.context && <ContextRing context={metadata.context} />}
       </div>
 
-      {note && <div className="composer-note" role="alert">{note}</div>}
+      {note && <div className={cn(COMPOSER_LINE, "text-destructive")} role="alert">{note}</div>}
       {!note && terminalOnly !== null && (
-        <div className="composer-hint">{t("{command} opens a tree the chat cannot show. It runs in the terminal. Tap the terminal button at the top of the screen to choose a branch.", { command: `/${terminalOnly}` })}</div>
+        <div className={cn(COMPOSER_LINE, "text-muted-foreground")}>{t("{command} opens a tree the chat cannot show. It runs in the terminal. Tap the terminal button at the top of the screen to choose a branch.", { command: `/${terminalOnly}` })}</div>
       )}
       {dictation.shown && <VoiceRecordingPill dictation={dictation} align="start" />}
     </div>
