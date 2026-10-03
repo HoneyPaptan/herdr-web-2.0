@@ -5,13 +5,34 @@ import { usePageVisible } from "./visibility.ts";
 
 declare const __APP_REVISION__: string | null;
 
+const ENTRY = /assets\/index-[\w-]+\.js/;
+
+function loadedEntry(): string | null {
+  for (const script of document.querySelectorAll<HTMLScriptElement>("script[type=module][src]")) {
+    const match = ENTRY.exec(script.src);
+    if (match) return match[0];
+  }
+  return null;
+}
+
+async function servedEntry(): Promise<string | null> {
+  const response = await fetch("/", { cache: "no-store" });
+  return response.ok ? ENTRY.exec(await response.text())?.[0] ?? null : null;
+}
+
+function outdated(status: UpdateStatus | null, served: string | null): boolean {
+  const loaded = loadedEntry();
+  if (loaded && served) return loaded !== served;
+  return typeof __APP_REVISION__ === "string" && !!status?.current_revision && __APP_REVISION__ !== status.current_revision;
+}
+
 export function useUpdates(enabled: boolean) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [served, setServed] = useState<string | null>(null);
   const mounted = useRef(false);
-  // a hidden page keeps the last status and polls again once it is back
   const visible = usePageVisible();
   useEffect(() => {
     if (!enabled) { setStatus(null); setPending(false); setError(null); return; }
@@ -22,10 +43,13 @@ export function useUpdates(enabled: boolean) {
     async function poll() {
       let delay = 2000;
       try {
-        const next = await fetchUpdateStatus();
-        if (!stopped) setStatus((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+        const [next, entry] = await Promise.all([fetchUpdateStatus(), servedEntry().catch(() => null)]);
+        if (!stopped) {
+          setStatus((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+          setServed(entry);
+        }
         if (next.phase === "idle" && !next.available) delay = 30_000;
-      } catch { /* a restart/offline period must not erase the last known status */ }
+      } catch {}
       if (!stopped) timer = setTimeout(() => void poll(), delay);
     }
     void poll();
@@ -45,8 +69,7 @@ export function useUpdates(enabled: boolean) {
     } finally { if (mounted.current) setPending(false); }
   }, []);
   const busy = pending || status?.phase === "checking" || status?.phase === "building" || status?.phase === "restarting";
-  const needsReload = typeof __APP_REVISION__ === "string" && !!status?.current_revision &&
-    __APP_REVISION__ !== status.current_revision && !busy;
+  const needsReload = outdated(status, served) && !busy;
   return { status, error, busy, needsReload, request };
 }
 
