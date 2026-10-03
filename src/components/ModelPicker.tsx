@@ -12,12 +12,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useT } from "../lib/i18n.ts";
+import { setView } from "../store/selection.ts";
 import { AgentMark } from "./AgentMark.tsx";
 
 const TRIGGER = "min-w-0 gap-1 px-1.5 text-ui text-muted-foreground";
 const MENU_ROW = "cursor-pointer text-ui";
 const MENU_HEADING = "text-ui font-normal text-muted-foreground";
 const FAMILIES = ["fable", "opus", "sonnet", "haiku"] as const;
+const NATIVE_PICKERS: Record<string, string> = { codex: "/model", gemini: "/model", omp: "/model", opencode: "/models", pi: "/model" };
 
 export interface ModelPickerProps {
   agent: string | null;
@@ -69,6 +71,20 @@ export function ModelPicker({ agent, agentLabel, model, effort, disabled, onComm
     { id: "xhigh", label: t("Extra high") },
     { id: "max", label: t("Max") },
   ], [t]);
+
+  const nativePicker = agent ? NATIVE_PICKERS[agent] : undefined;
+  if (nativePicker) {
+    const open = (): void => {
+      onCommand(nativePicker);
+      setView("terminal");
+    };
+    return (
+      <Button variant="ghost" size="sm" className={TRIGGER} disabled={disabled} aria-label={t("Switch model")} onClick={open}>
+        <TriggerFace agent={agent} name={name} effort={effort} />
+        <ChevronDown className="size-3 shrink-0 opacity-60" />
+      </Button>
+    );
+  }
 
   if (agent !== "claude") {
     return <span className={`inline-flex h-7 items-center ${TRIGGER}`}><TriggerFace agent={agent} name={name} effort={effort} /></span>;
