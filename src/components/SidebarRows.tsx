@@ -12,7 +12,7 @@ const ELBOW = 10;
 const RAIL = "pointer-events-none absolute w-px bg-sidebar-border";
 const ACTIVE_ON_TOUCH = "pointer-coarse:group-aria-[current=true]:pointer-events-auto pointer-coarse:group-aria-[current=true]:opacity-100";
 
-export const SIDEBAR_LIST = "flex min-h-0 flex-1 flex-col gap-px overflow-y-auto pb-3 pl-2 pr-0";
+export const SIDEBAR_LIST = "flex min-h-0 flex-1 flex-col gap-px overflow-y-auto pb-3 pl-2 pr-2";
 export const SIDEBAR_EMPTY = "px-2 py-6 text-ui text-muted-foreground";
 export const ROW_INPUT = "h-6 w-full min-w-0 rounded-md border border-input bg-transparent px-1.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
 
