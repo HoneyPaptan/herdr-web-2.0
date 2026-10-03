@@ -630,7 +630,7 @@ body {
     bottom: 0;
     left: 0;
     z-index: var(--z-drawer);
-    width: min(88vw, var(--sidebar-w));
+    width: 80vw;
     transform: translateX(-100%);
     visibility: hidden;
     box-shadow: var(--shadow-drawer);
