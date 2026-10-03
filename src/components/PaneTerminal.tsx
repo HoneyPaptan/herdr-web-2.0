@@ -38,6 +38,7 @@ import { fileUriPath, terminalFileLinkProvider } from "../lib/terminalFileLinks.
 import { startTerminalRenderer } from "../lib/terminalRenderer.ts";
 
 const RESIZE_SETTLE_MS = 120;
+const QUEUE_ACTION = "cursor-pointer rounded-sm border-0 bg-transparent p-0 text-ui text-muted-foreground/60 [font:inherit] hover:text-foreground disabled:cursor-default disabled:opacity-50";
 
 export interface PaneTerminalProps {
   paneId: string | null;
@@ -1143,18 +1144,13 @@ export function PaneTerminal({
         )}
       </div>
       {paneId !== null && chatView && !observing && !ended && queueOwner !== null && queued.length > 0 && (
-        <section className="composer-queue" aria-label={t("Queued messages")}>
-          <div className="composer-queue-heading">
-            <strong>{t("Queued messages ({n})", { n: queued.length })}</strong>
-            <span className="composer-queue-label">{t(readyForQueue ? "Held message — review and send" : "Held until the agent is ready")}</span>
-          </div>
-          {queueStore.isUnsaved(queueOwner) && <p className="composer-queue-error" role="status">{t("Queue could not be saved. Keep this tab open or copy the messages before reloading.")}</p>}
-          <ol className="composer-queue-list">
-          {queued.map((message, index) => <li className="composer-queue-item" key={message.id}>
-            <label className="composer-queue-label" htmlFor={`queued-${message.id}`}>{t("Message {n}", { n: index + 1 })}</label>
+        <section className="composer-queue mx-auto flex max-h-[min(34dvh,22rem)] min-h-0 w-full max-w-(--content-w) shrink flex-col gap-2 overflow-y-auto px-3 pt-2 pb-1" aria-label={t("Queued messages")}>
+          <p className="m-0 self-end pr-1 text-ui text-muted-foreground/60">{t(readyForQueue ? "Held: review and send" : "Held until the agent is ready")}</p>
+          {queueStore.isUnsaved(queueOwner) && <p className="m-0 self-end pr-1 text-ui text-destructive" role="status">{t("Queue could not be saved. Keep this tab open or copy the messages before reloading.")}</p>}
+          <ol className="m-0 flex list-none flex-col gap-3 p-0">
+          {queued.map((message, index) => <li className="flex w-full flex-col items-end gap-1" key={message.id}>
             <textarea
-              id={`queued-${message.id}`}
-              className="composer-queue-text"
+              className="composer-queue-text m-0 max-h-[8lh] min-w-32 max-w-[85%] resize-none rounded-xl border-0 bg-card px-3 py-2 text-chat text-card-foreground opacity-55 transition-opacity outline-none [field-sizing:content] [font-family:inherit] focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40"
               value={message.text}
               rows={Math.min(4, message.text.split("\n").length)}
               aria-label={t("Queued message {n}", { n: index + 1 })}
@@ -1163,8 +1159,8 @@ export function PaneTerminal({
               spellCheck={false} autoCapitalize="off" autoCorrect="off"
               onChange={(event) => { queueStore.edit(queueOwner, message.id, event.target.value); }}
             />
-            <div className="composer-queue-actions">
-              <button type="button" className="composer-queue-send"
+            <span className="flex items-center gap-1.5 pr-1 text-ui text-muted-foreground/60">
+              <button type="button" className={QUEUE_ACTION}
                 disabled={!connected || held || secretActive || queueSending !== null || queued.some((item) => queueStore.isSending(item.id)) || heldByOpenQueue || message.text.trim().length === 0}
                 title={heldByOpenQueue ? t("Codex has a question open in the terminal: answer it above first") : undefined}
                 onClick={() => {
@@ -1180,10 +1176,11 @@ export function PaneTerminal({
                     .catch(() => setQueueError({ owner, id: message.id, text: t("Not confirmed. Check the terminal before sending again.") }))
                     .finally(() => { queueStore.endSend(owner, message.id); sendingRef.current = false; setQueueSending(null); });
                 }}>{t("Send now")}</button>
-              <button type="button" className="composer-queue-discard" disabled={queueStore.isSending(message.id)}
+              <span aria-hidden="true">·</span>
+              <button type="button" className={QUEUE_ACTION} disabled={queueStore.isSending(message.id)}
                 onClick={() => { queueStore.remove(queueOwner, message.id); }}>{t("Discard")}</button>
-            </div>
-            {queueError?.owner === queueOwner && queueError.id === message.id && <p className="composer-queue-error" role="status">{queueError.text}</p>}
+            </span>
+            {queueError?.owner === queueOwner && queueError.id === message.id && <p className="m-0 pr-1 text-ui text-destructive" role="status">{queueError.text}</p>}
           </li>)}
           </ol>
         </section>
