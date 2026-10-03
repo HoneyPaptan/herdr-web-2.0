@@ -38,6 +38,7 @@ import { activeTrigger, applyCompletion, promptRuns, type ActiveTrigger, type Pr
 import { quickReplyButtons, useSettings } from "../lib/settings.ts";
 import { BackgroundTasks } from "./BackgroundTasks.tsx";
 import { ModelPicker } from "./ModelPicker.tsx";
+import { PermissionPicker } from "./PermissionPicker.tsx";
 import { Orb } from "./Orb.tsx";
 import { MicButton, VoiceRecordingPill, useDictation } from "./VoiceInput.tsx";
 import { useT } from "../lib/i18n.ts";
@@ -797,6 +798,7 @@ export function Composer({
           disabled={!connected || sending || isWorking}
           onCommand={runCommand}
         />
+        <PermissionPicker paneId={paneId} agent={agent} disabled={!connected || agentStatus === "blocked"} />
         <span className={cn("inline-flex shrink-0 items-center gap-1 px-1.5 text-ui", agentStatus === "blocked" ? "text-accent-command" : "text-muted-foreground")}>
           {isWorking && <Orb state="listening" aria-hidden="true" className="shrink-0" />}
           {t(composerStatusWord(agentStatus))}

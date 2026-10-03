@@ -19,10 +19,10 @@ import { useMachineApi } from "../lib/machineContext.tsx";
 import { setView } from "../store/selection.ts";
 import { AgentMark } from "./AgentMark.tsx";
 
-const TRIGGER = "min-w-0 gap-1 px-1.5 text-ui text-muted-foreground";
-const MENU_ROW = "cursor-pointer text-ui";
-const MENU_HEADING = "text-ui font-normal text-muted-foreground";
-const MENU_NOTE = "m-0 px-1.5 py-1 text-ui text-muted-foreground";
+export const TRIGGER = "min-w-0 gap-1 px-1.5 text-ui text-muted-foreground";
+export const MENU_ROW = "cursor-pointer text-ui";
+export const MENU_HEADING = "text-ui font-normal text-muted-foreground";
+export const MENU_NOTE = "m-0 px-1.5 py-1 text-ui text-muted-foreground";
 const FAMILIES = ["fable", "opus", "sonnet", "haiku"] as const;
 const NATIVE_PICKERS: Record<string, string> = { codex: "/model", gemini: "/model", omp: "/model", pi: "/model" };
 
